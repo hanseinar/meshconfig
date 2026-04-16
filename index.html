@@ -20,6 +20,7 @@
       <h2>Connection</h2>
       <button id="btn-connect">Connect via USB</button>
       <div id="connection-status" class="status status--disconnected">Disconnected</div>
+      <div id="proto-status" class="status status--disconnected" style="margin-left:0.5rem;">Proto: not loaded</div>
     </section>
 
     <!-- Section 2: Node Info (hidden until connected) -->
@@ -27,9 +28,12 @@
       <h2>Node Info</h2>
       <table id="node-info-table">
         <tr><td>Name</td><td id="info-name">—</td></tr>
+        <tr><td>Short name</td><td id="info-shortname">—</td></tr>
         <tr><td>Hardware</td><td id="info-hw">—</td></tr>
         <tr><td>Firmware</td><td id="info-fw">—</td></tr>
         <tr><td>Node ID</td><td id="info-id">—</td></tr>
+        <tr><td>Role</td><td id="info-role">—</td></tr>
+        <tr><td>Region</td><td id="info-region">—</td></tr>
       </table>
     </section>
 
@@ -67,6 +71,14 @@
     <p>MeshConfig — <a href="https://meshtastic.org" target="_blank">meshtastic.org</a> — WebSerial requires Chrome or Edge</p>
   </footer>
 
+  <!--
+    protobufjs light build (~16kb gzip).
+    Exposes window.protobuf - used to load meshtastic.proto.json at runtime.
+    Pinned to 7.4.0 for stability. To update: re-validate meshtastic.proto.json
+    with new version before changing this tag.
+  -->
+  <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
   <script src="app.js"></script>
+
 </body>
 </html>
