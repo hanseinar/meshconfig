@@ -1,1 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MeshConfig — Meshtastic Node Configurator</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
 
+  <header>
+    <h1>MeshConfig</h1>
+    <p class="subtitle">Meshtastic Node Configurator</p>
+  </header>
+
+  <main>
+
+    <!-- Section 1: Connection -->
+    <section id="section-connect">
+      <h2>Connection</h2>
+      <button id="btn-connect">Connect via USB</button>
+      <div id="connection-status" class="status status--disconnected">Disconnected</div>
+    </section>
+
+    <!-- Section 2: Node Info (hidden until connected) -->
+    <section id="section-nodeinfo" class="hidden">
+      <h2>Node Info</h2>
+      <table id="node-info-table">
+        <tr><td>Name</td><td id="info-name">—</td></tr>
+        <tr><td>Hardware</td><td id="info-hw">—</td></tr>
+        <tr><td>Firmware</td><td id="info-fw">—</td></tr>
+        <tr><td>Node ID</td><td id="info-id">—</td></tr>
+      </table>
+    </section>
+
+    <!-- Section 3: Profiles (hidden until connected) -->
+    <section id="section-profiles" class="hidden">
+      <h2>Profiles</h2>
+      <p>Select a profile to apply a preset configuration to the node.</p>
+      <div id="profile-list">
+        <button class="btn-profile" data-profile="solar">Solar / Fixed Install</button>
+        <button class="btn-profile" data-profile="handheld">Handheld / Personal</button>
+        <button class="btn-profile" data-profile="repeater">Repeater</button>
+        <button class="btn-profile" data-profile="sensor">Sensor</button>
+      </div>
+    </section>
+
+    <!-- Section 4: Backup & Restore (hidden until connected) -->
+    <section id="section-backup" class="hidden">
+      <h2>Backup &amp; Restore</h2>
+      <button id="btn-backup">Export config to YAML</button>
+      <hr />
+      <label for="input-restore">Import config from YAML:</label>
+      <input type="file" id="input-restore" accept=".yaml,.yml" />
+      <button id="btn-restore">Apply to node</button>
+    </section>
+
+    <!-- Section 5: Raw Config (hidden until connected) -->
+    <section id="section-config" class="hidden">
+      <h2>Current Configuration</h2>
+      <pre id="config-display">No config loaded.</pre>
+    </section>
+
+  </main>
+
+  <footer>
+    <p>MeshConfig — <a href="https://meshtastic.org" target="_blank">meshtastic.org</a> — WebSerial requires Chrome or Edge</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
