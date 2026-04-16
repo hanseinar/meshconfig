@@ -1,0 +1,1590 @@
+{
+  "nested": {
+    "meshtastic": {
+      "nested": {
+        "HardwareModel": {
+          "values": {
+            "UNSET": 0,
+            "TLORA_V2": 1,
+            "TLORA_V1": 2,
+            "TLORA_V2_1_1P6": 3,
+            "TBEAM": 4,
+            "HELTEC_V2_0": 5,
+            "TBEAM_V0P7": 6,
+            "T_ECHO": 7,
+            "TLORA_V1_1P3": 8,
+            "RAK4631": 9,
+            "HELTEC_V2_1": 10,
+            "HELTEC_V1": 11,
+            "LILYGO_TBEAM_S3_CORE": 12,
+            "RAK11200": 13,
+            "NANO_G1": 14,
+            "TLORA_V2_1_1P8": 15,
+            "TLORA_T3_S3": 16,
+            "NANO_G1_EXPLORER": 17,
+            "NANO_G2_ULTRA": 18,
+            "LORA_TYPE": 19,
+            "WIPHONE": 20,
+            "WIO_WM1110": 21,
+            "RAK2560": 22,
+            "HELTEC_HRU_3601": 23,
+            "HELTEC_WIRELESS_BRIDGE": 24,
+            "STATION_G1": 25,
+            "RAK11310": 26,
+            "SENSELORA_S3": 27,
+            "SENSELORA_RP2040": 28,
+            "CANARYONE": 29,
+            "RP2040_LORA": 30,
+            "STATION_G2": 31,
+            "LORA_RELAY_V1": 32,
+            "NRF52840DK": 33,
+            "PPR": 34,
+            "GENIEBLOCKS": 35,
+            "NRF52_UNKNOWN": 36,
+            "PORTDUINO": 37,
+            "ANDROID_SIM": 38,
+            "DIY_V1": 39,
+            "NRF52840_PCA10059": 40,
+            "DR_DEV": 41,
+            "M5STACK": 42,
+            "HELTEC_V3": 43,
+            "HELTEC_WSL_V3": 44,
+            "BETAFPV_2400_TX": 45,
+            "BETAFPV_900_NANO_TX": 46,
+            "RPI_PICO": 47,
+            "HELTEC_WIRELESS_TRACKER": 48,
+            "HELTEC_WIRELESS_PAPER": 49,
+            "T_DECK": 50,
+            "T_WATCH_S3": 51,
+            "PICOMPUTER_S3": 52,
+            "HELTEC_HT62": 53,
+            "EBYTE_ESP32_S3": 54,
+            "ESP32_S3_PICO": 55,
+            "TLORA_C6": 56,
+            "WISMESH_TAP": 57,
+            "PRIVATE_HW": 255
+          }
+        },
+        "Position": {
+          "fields": {
+            "latitudeI": {
+              "type": "sfixed32",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "longitudeI": {
+              "type": "sfixed32",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "altitude": {
+              "type": "int32",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "time": {
+              "type": "fixed32",
+              "id": 9
+            }
+          }
+        },
+        "DeviceMetrics": {
+          "fields": {
+            "batteryLevel": {
+              "type": "uint32",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "voltage": {
+              "type": "float",
+              "id": 2,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "channelUtilization": {
+              "type": "float",
+              "id": 3,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "airUtilTx": {
+              "type": "float",
+              "id": 4,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "uptimeSeconds": {
+              "type": "uint32",
+              "id": 5,
+              "options": {
+                "proto3_optional": true
+              }
+            }
+          }
+        },
+        "User": {
+          "fields": {
+            "id": {
+              "type": "string",
+              "id": 1
+            },
+            "longName": {
+              "type": "string",
+              "id": 2
+            },
+            "shortName": {
+              "type": "string",
+              "id": 3
+            },
+            "macaddr": {
+              "type": "bytes",
+              "id": 4
+            },
+            "hwModel": {
+              "type": "HardwareModel",
+              "id": 6
+            },
+            "isLicensed": {
+              "type": "bool",
+              "id": 7
+            },
+            "role": {
+              "type": "Config.DeviceConfig.Role",
+              "id": 8
+            },
+            "publicKey": {
+              "type": "bytes",
+              "id": 9
+            }
+          }
+        },
+        "MyNodeInfo": {
+          "fields": {
+            "myNodeNum": {
+              "type": "uint32",
+              "id": 1
+            },
+            "maxChannels": {
+              "type": "int32",
+              "id": 8
+            }
+          }
+        },
+        "NodeInfo": {
+          "fields": {
+            "num": {
+              "type": "uint32",
+              "id": 1
+            },
+            "user": {
+              "type": "User",
+              "id": 2
+            },
+            "position": {
+              "type": "Position",
+              "id": 3
+            },
+            "snr": {
+              "type": "float",
+              "id": 4
+            },
+            "lastHeard": {
+              "type": "fixed32",
+              "id": 5
+            },
+            "deviceMetrics": {
+              "type": "DeviceMetrics",
+              "id": 6
+            },
+            "channel": {
+              "type": "uint32",
+              "id": 7
+            },
+            "viaMqtt": {
+              "type": "bool",
+              "id": 8
+            },
+            "hopsAway": {
+              "type": "uint32",
+              "id": 10,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "isFavorite": {
+              "type": "bool",
+              "id": 14
+            }
+          }
+        },
+        "DeviceMetadata": {
+          "fields": {
+            "firmwareVersion": {
+              "type": "string",
+              "id": 1
+            },
+            "deviceStateVersion": {
+              "type": "uint32",
+              "id": 2
+            },
+            "canShutdown": {
+              "type": "bool",
+              "id": 3
+            },
+            "hasWifi": {
+              "type": "bool",
+              "id": 4
+            },
+            "hasBluetooth": {
+              "type": "bool",
+              "id": 5
+            },
+            "hasEthernet": {
+              "type": "bool",
+              "id": 6
+            },
+            "role": {
+              "type": "Config.DeviceConfig.Role",
+              "id": 7
+            },
+            "positionFlags": {
+              "type": "uint32",
+              "id": 8
+            },
+            "hwModel": {
+              "type": "HardwareModel",
+              "id": 9
+            },
+            "hasRemoteHardware": {
+              "type": "bool",
+              "id": 10
+            }
+          }
+        },
+        "ModuleSettings": {
+          "fields": {
+            "positionPrecision": {
+              "type": "uint32",
+              "id": 1
+            },
+            "isMuted": {
+              "type": "bool",
+              "id": 2
+            }
+          }
+        },
+        "ChannelSettings": {
+          "fields": {
+            "channelNum": {
+              "type": "uint32",
+              "id": 1
+            },
+            "psk": {
+              "type": "bytes",
+              "id": 2
+            },
+            "name": {
+              "type": "string",
+              "id": 3
+            },
+            "id": {
+              "type": "fixed32",
+              "id": 4
+            },
+            "uplinkEnabled": {
+              "type": "bool",
+              "id": 5
+            },
+            "downlinkEnabled": {
+              "type": "bool",
+              "id": 6
+            },
+            "moduleSettings": {
+              "type": "ModuleSettings",
+              "id": 7
+            }
+          }
+        },
+        "Channel": {
+          "fields": {
+            "index": {
+              "type": "int32",
+              "id": 1
+            },
+            "settings": {
+              "type": "ChannelSettings",
+              "id": 2
+            },
+            "role": {
+              "type": "Channel.Role",
+              "id": 3
+            }
+          },
+          "nested": {
+            "Role": {
+              "values": {
+                "DISABLED": 0,
+                "PRIMARY": 1,
+                "SECONDARY": 2
+              }
+            }
+          }
+        },
+        "Config": {
+          "oneofs": {
+            "payloadVariant": {
+              "oneof": [
+                "device",
+                "position",
+                "power",
+                "network",
+                "display",
+                "lora",
+                "bluetooth",
+                "security"
+              ]
+            }
+          },
+          "fields": {
+            "device": {
+              "type": "Config.DeviceConfig",
+              "id": 1
+            },
+            "position": {
+              "type": "Config.PositionConfig",
+              "id": 2
+            },
+            "power": {
+              "type": "Config.PowerConfig",
+              "id": 3
+            },
+            "network": {
+              "type": "Config.NetworkConfig",
+              "id": 4
+            },
+            "display": {
+              "type": "Config.DisplayConfig",
+              "id": 5
+            },
+            "lora": {
+              "type": "Config.LoRaConfig",
+              "id": 6
+            },
+            "bluetooth": {
+              "type": "Config.BluetoothConfig",
+              "id": 7
+            },
+            "security": {
+              "type": "Config.SecurityConfig",
+              "id": 8
+            }
+          },
+          "nested": {
+            "DeviceConfig": {
+              "fields": {
+                "role": {
+                  "type": "Config.DeviceConfig.Role",
+                  "id": 1
+                },
+                "serialEnabled": {
+                  "type": "bool",
+                  "id": 2
+                },
+                "debugLogEnabled": {
+                  "type": "bool",
+                  "id": 3
+                },
+                "buttonGpio": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "buzzerGpio": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "rebroadcastMode": {
+                  "type": "Config.DeviceConfig.RebroadcastMode",
+                  "id": 6
+                },
+                "nodeInfoBroadcastSecs": {
+                  "type": "uint32",
+                  "id": 7
+                },
+                "doubleTapAsButtonPress": {
+                  "type": "bool",
+                  "id": 8
+                },
+                "isManaged": {
+                  "type": "bool",
+                  "id": 9
+                },
+                "disableTripleClick": {
+                  "type": "bool",
+                  "id": 10
+                },
+                "tzdef": {
+                  "type": "string",
+                  "id": 11
+                },
+                "ledHeartbeatDisabled": {
+                  "type": "bool",
+                  "id": 12
+                }
+              },
+              "nested": {
+                "Role": {
+                  "values": {
+                    "CLIENT": 0,
+                    "CLIENT_MUTE": 1,
+                    "ROUTER": 2,
+                    "ROUTER_CLIENT": 3,
+                    "REPEATER": 4,
+                    "TRACKER": 5,
+                    "SENSOR": 6,
+                    "TAK": 7,
+                    "CLIENT_HIDDEN": 8,
+                    "LOST_AND_FOUND": 9,
+                    "TAK_TRACKER": 10
+                  }
+                },
+                "RebroadcastMode": {
+                  "values": {
+                    "ALL": 0,
+                    "ALL_SKIP_DECODING": 1,
+                    "LOCAL_ONLY": 2,
+                    "KNOWN_ONLY": 3,
+                    "NONE": 4
+                  }
+                }
+              }
+            },
+            "LoRaConfig": {
+              "fields": {
+                "usePreset": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "modemPreset": {
+                  "type": "Config.LoRaConfig.ModemPreset",
+                  "id": 2
+                },
+                "bandwidth": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "spreadFactor": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "codingRate": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "frequencyOffset": {
+                  "type": "float",
+                  "id": 6
+                },
+                "region": {
+                  "type": "Config.LoRaConfig.RegionCode",
+                  "id": 7
+                },
+                "hopLimit": {
+                  "type": "uint32",
+                  "id": 8
+                },
+                "txEnabled": {
+                  "type": "bool",
+                  "id": 9
+                },
+                "txPower": {
+                  "type": "int32",
+                  "id": 10
+                },
+                "channelNum": {
+                  "type": "uint32",
+                  "id": 11
+                },
+                "overrideDutyCycle": {
+                  "type": "bool",
+                  "id": 12
+                },
+                "sx126xRxBoostedGain": {
+                  "type": "bool",
+                  "id": 13
+                },
+                "overrideFrequency": {
+                  "type": "float",
+                  "id": 14
+                },
+                "paFanDisabled": {
+                  "type": "bool",
+                  "id": 15
+                }
+              },
+              "nested": {
+                "ModemPreset": {
+                  "values": {
+                    "LONG_FAST": 0,
+                    "LONG_SLOW": 1,
+                    "VERY_LONG_SLOW": 2,
+                    "MEDIUM_SLOW": 3,
+                    "MEDIUM_FAST": 4,
+                    "SHORT_SLOW": 5,
+                    "SHORT_FAST": 6,
+                    "LONG_MODERATE": 7
+                  }
+                },
+                "RegionCode": {
+                  "values": {
+                    "UNSET": 0,
+                    "US": 1,
+                    "EU_433": 2,
+                    "EU_868": 3,
+                    "CN": 4,
+                    "JP": 5,
+                    "ANZ": 6,
+                    "KR": 7,
+                    "TW": 8,
+                    "RU": 9,
+                    "IN": 10,
+                    "NZ_865": 11,
+                    "TH": 12,
+                    "LORA_24": 13,
+                    "UA_433": 14,
+                    "UA_868": 15,
+                    "MY_433": 16,
+                    "MY_919": 17,
+                    "SG_923": 18,
+                    "PH_433": 19,
+                    "PH_868": 20,
+                    "PH_915": 21,
+                    "ANZ_433": 22
+                  }
+                }
+              }
+            },
+            "PositionConfig": {
+              "fields": {
+                "positionBroadcastSecs": {
+                  "type": "uint32",
+                  "id": 1
+                },
+                "positionBroadcastSmartEnabled": {
+                  "type": "bool",
+                  "id": 2
+                },
+                "fixedPosition": {
+                  "type": "bool",
+                  "id": 3
+                },
+                "gpsEnabled": {
+                  "type": "bool",
+                  "id": 4
+                },
+                "gpsUpdateInterval": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "gpsAttemptTime": {
+                  "type": "uint32",
+                  "id": 6
+                },
+                "positionFlags": {
+                  "type": "uint32",
+                  "id": 7
+                },
+                "rxGpio": {
+                  "type": "int32",
+                  "id": 8
+                },
+                "txGpio": {
+                  "type": "int32",
+                  "id": 9
+                },
+                "gpsMode": {
+                  "type": "Config.PositionConfig.GpsMode",
+                  "id": 11
+                }
+              },
+              "nested": {
+                "GpsMode": {
+                  "values": {
+                    "DISABLED": 0,
+                    "ENABLED": 1,
+                    "NOT_PRESENT": 2
+                  }
+                }
+              }
+            },
+            "PowerConfig": {
+              "fields": {
+                "isPowerSaving": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "onBatteryShutdownAfterSecs": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "adcMultiplierOverride": {
+                  "type": "float",
+                  "id": 3
+                },
+                "waitBluetoothSecs": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "sdsSecs": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "lsSecs": {
+                  "type": "uint32",
+                  "id": 6
+                },
+                "minWakeSecs": {
+                  "type": "uint32",
+                  "id": 7
+                },
+                "deviceBatteryInaAddress": {
+                  "type": "uint32",
+                  "id": 9
+                }
+              }
+            },
+            "NetworkConfig": {
+              "fields": {
+                "wifiEnabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "wifiSsid": {
+                  "type": "string",
+                  "id": 3
+                },
+                "wifiPsk": {
+                  "type": "string",
+                  "id": 4
+                },
+                "ntpServer": {
+                  "type": "string",
+                  "id": 5
+                },
+                "ethEnabled": {
+                  "type": "bool",
+                  "id": 6
+                },
+                "rsyslogServer": {
+                  "type": "string",
+                  "id": 9
+                }
+              }
+            },
+            "DisplayConfig": {
+              "fields": {
+                "screenOnSecs": {
+                  "type": "uint32",
+                  "id": 1
+                },
+                "flipScreen": {
+                  "type": "bool",
+                  "id": 3
+                },
+                "oledType": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "displaymode": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "headingBold": {
+                  "type": "bool",
+                  "id": 6
+                },
+                "wakeOnTapOrMotion": {
+                  "type": "bool",
+                  "id": 7
+                },
+                "compassNorthTop": {
+                  "type": "bool",
+                  "id": 8
+                }
+              }
+            },
+            "BluetoothConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "mode": {
+                  "type": "Config.BluetoothConfig.PairingMode",
+                  "id": 2
+                },
+                "fixedPin": {
+                  "type": "uint32",
+                  "id": 3
+                }
+              },
+              "nested": {
+                "PairingMode": {
+                  "values": {
+                    "RANDOM_PIN": 0,
+                    "FIXED_PIN": 1,
+                    "NO_PIN": 2
+                  }
+                }
+              }
+            },
+            "SecurityConfig": {
+              "fields": {
+                "publicKey": {
+                  "type": "bytes",
+                  "id": 1
+                },
+                "privateKey": {
+                  "type": "bytes",
+                  "id": 2
+                },
+                "adminKey": {
+                  "type": "bytes",
+                  "id": 3,
+                  "rule": "repeated"
+                },
+                "isManaged": {
+                  "type": "bool",
+                  "id": 4
+                },
+                "serialEnabled": {
+                  "type": "bool",
+                  "id": 5
+                },
+                "debugLogApiEnabled": {
+                  "type": "bool",
+                  "id": 6
+                },
+                "adminChannelEnabled": {
+                  "type": "bool",
+                  "id": 7
+                }
+              }
+            }
+          }
+        },
+        "ModuleConfig": {
+          "oneofs": {
+            "payloadVariant": {
+              "oneof": [
+                "mqtt",
+                "serial",
+                "externalNotification",
+                "storeForward",
+                "rangeTest",
+                "telemetry",
+                "cannedMessage",
+                "audio",
+                "remoteHardware",
+                "neighborInfo",
+                "ambientLighting",
+                "detectionSensor",
+                "paxcounter"
+              ]
+            }
+          },
+          "fields": {
+            "mqtt": {
+              "type": "ModuleConfig.MQTTConfig",
+              "id": 1
+            },
+            "serial": {
+              "type": "ModuleConfig.SerialConfig",
+              "id": 2
+            },
+            "externalNotification": {
+              "type": "ModuleConfig.ExternalNotificationConfig",
+              "id": 3
+            },
+            "storeForward": {
+              "type": "ModuleConfig.StoreForwardConfig",
+              "id": 4
+            },
+            "rangeTest": {
+              "type": "ModuleConfig.RangeTestConfig",
+              "id": 5
+            },
+            "telemetry": {
+              "type": "ModuleConfig.TelemetryConfig",
+              "id": 6
+            },
+            "cannedMessage": {
+              "type": "ModuleConfig.CannedMessageConfig",
+              "id": 7
+            },
+            "audio": {
+              "type": "ModuleConfig.AudioConfig",
+              "id": 8
+            },
+            "remoteHardware": {
+              "type": "ModuleConfig.RemoteHardwareConfig",
+              "id": 9
+            },
+            "neighborInfo": {
+              "type": "ModuleConfig.NeighborInfoConfig",
+              "id": 10
+            },
+            "ambientLighting": {
+              "type": "ModuleConfig.AmbientLightingConfig",
+              "id": 11
+            },
+            "detectionSensor": {
+              "type": "ModuleConfig.DetectionSensorConfig",
+              "id": 12
+            },
+            "paxcounter": {
+              "type": "ModuleConfig.PaxcounterConfig",
+              "id": 14
+            }
+          },
+          "nested": {
+            "MQTTConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "address": {
+                  "type": "string",
+                  "id": 2
+                },
+                "username": {
+                  "type": "string",
+                  "id": 3
+                },
+                "password": {
+                  "type": "string",
+                  "id": 4
+                },
+                "encryptionEnabled": {
+                  "type": "bool",
+                  "id": 5
+                },
+                "jsonEnabled": {
+                  "type": "bool",
+                  "id": 6
+                },
+                "tlsEnabled": {
+                  "type": "bool",
+                  "id": 7
+                },
+                "root": {
+                  "type": "string",
+                  "id": 8
+                },
+                "proxyToClientEnabled": {
+                  "type": "bool",
+                  "id": 9
+                }
+              }
+            },
+            "SerialConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "echo": {
+                  "type": "bool",
+                  "id": 2
+                },
+                "rxd": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "txd": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "baud": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "timeout": {
+                  "type": "uint32",
+                  "id": 6
+                },
+                "mode": {
+                  "type": "uint32",
+                  "id": 7
+                }
+              }
+            },
+            "ExternalNotificationConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "outputMs": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "output": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "active": {
+                  "type": "bool",
+                  "id": 4
+                },
+                "alertMessage": {
+                  "type": "bool",
+                  "id": 5
+                },
+                "alertBell": {
+                  "type": "bool",
+                  "id": 6
+                },
+                "usePwm": {
+                  "type": "bool",
+                  "id": 7
+                },
+                "outputVibra": {
+                  "type": "uint32",
+                  "id": 8
+                },
+                "outputBuzzer": {
+                  "type": "uint32",
+                  "id": 9
+                },
+                "nagTimeout": {
+                  "type": "uint32",
+                  "id": 10
+                }
+              }
+            },
+            "StoreForwardConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "heartbeat": {
+                  "type": "bool",
+                  "id": 2
+                },
+                "records": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "historyReturnMax": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "historyReturnWindow": {
+                  "type": "uint32",
+                  "id": 5
+                }
+              }
+            },
+            "RangeTestConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "sender": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "save": {
+                  "type": "bool",
+                  "id": 3
+                }
+              }
+            },
+            "TelemetryConfig": {
+              "fields": {
+                "deviceUpdateInterval": {
+                  "type": "uint32",
+                  "id": 1
+                },
+                "environmentUpdateInterval": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "environmentMeasurementEnabled": {
+                  "type": "bool",
+                  "id": 3
+                },
+                "environmentScreenEnabled": {
+                  "type": "bool",
+                  "id": 4
+                },
+                "environmentDisplayFahrenheit": {
+                  "type": "bool",
+                  "id": 5
+                },
+                "airQualityEnabled": {
+                  "type": "bool",
+                  "id": 6
+                },
+                "airQualityInterval": {
+                  "type": "uint32",
+                  "id": 7
+                },
+                "powerMeasurementEnabled": {
+                  "type": "bool",
+                  "id": 8
+                },
+                "powerUpdateInterval": {
+                  "type": "uint32",
+                  "id": 9
+                },
+                "powerScreenEnabled": {
+                  "type": "bool",
+                  "id": 10
+                }
+              }
+            },
+            "CannedMessageConfig": {
+              "fields": {
+                "rotary1Enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "inputbrokerPinA": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "inputbrokerPinB": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "inputbrokerPinPress": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "inputbrokerEventCw": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "inputbrokerEventCcw": {
+                  "type": "uint32",
+                  "id": 6
+                },
+                "inputbrokerEventPress": {
+                  "type": "uint32",
+                  "id": 7
+                },
+                "updown1Enabled": {
+                  "type": "bool",
+                  "id": 8
+                },
+                "enabled": {
+                  "type": "bool",
+                  "id": 9
+                },
+                "allowInputSource": {
+                  "type": "string",
+                  "id": 10
+                },
+                "sendBell": {
+                  "type": "bool",
+                  "id": 11
+                }
+              }
+            },
+            "AudioConfig": {
+              "fields": {
+                "codec2Enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "pttPin": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "bitrate": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "i2sWs": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "i2sSd": {
+                  "type": "uint32",
+                  "id": 5
+                },
+                "i2sDin": {
+                  "type": "uint32",
+                  "id": 6
+                },
+                "i2sSck": {
+                  "type": "uint32",
+                  "id": 7
+                }
+              }
+            },
+            "RemoteHardwareConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "allowUndefinedPinAccess": {
+                  "type": "bool",
+                  "id": 2
+                }
+              }
+            },
+            "NeighborInfoConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "updateInterval": {
+                  "type": "uint32",
+                  "id": 2
+                }
+              }
+            },
+            "AmbientLightingConfig": {
+              "fields": {
+                "ledState": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "current": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "red": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "green": {
+                  "type": "uint32",
+                  "id": 4
+                },
+                "blue": {
+                  "type": "uint32",
+                  "id": 5
+                }
+              }
+            },
+            "DetectionSensorConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "minimumBroadcastSecs": {
+                  "type": "uint32",
+                  "id": 2
+                },
+                "stateBroadcastSecs": {
+                  "type": "uint32",
+                  "id": 3
+                },
+                "sendBell": {
+                  "type": "bool",
+                  "id": 4
+                },
+                "name": {
+                  "type": "string",
+                  "id": 5
+                },
+                "monitorPin": {
+                  "type": "uint32",
+                  "id": 6
+                },
+                "detectionTriggeredHigh": {
+                  "type": "bool",
+                  "id": 7
+                },
+                "usePullup": {
+                  "type": "bool",
+                  "id": 8
+                }
+              }
+            },
+            "PaxcounterConfig": {
+              "fields": {
+                "enabled": {
+                  "type": "bool",
+                  "id": 1
+                },
+                "paxcounterUpdateInterval": {
+                  "type": "uint32",
+                  "id": 2
+                }
+              }
+            }
+          }
+        },
+        "AdminMessage": {
+          "oneofs": {
+            "payloadVariant": {
+              "oneof": [
+                "getChannelRequest",
+                "getChannelResponse",
+                "getOwnerRequest",
+                "getOwnerResponse",
+                "getConfigRequest",
+                "getConfigResponse",
+                "getModuleConfigRequest",
+                "getModuleConfigResponse",
+                "setOwner",
+                "setChannel",
+                "setConfig",
+                "setModuleConfig",
+                "removeByNodenum",
+                "setHamMode",
+                "nodeRemoteHardwarePins"
+              ]
+            }
+          },
+          "fields": {
+            "getChannelRequest": {
+              "type": "uint32",
+              "id": 1
+            },
+            "getChannelResponse": {
+              "type": "Channel",
+              "id": 2
+            },
+            "getOwnerRequest": {
+              "type": "bool",
+              "id": 3
+            },
+            "getOwnerResponse": {
+              "type": "User",
+              "id": 4
+            },
+            "getConfigRequest": {
+              "type": "AdminMessage.ConfigType",
+              "id": 5
+            },
+            "getConfigResponse": {
+              "type": "Config",
+              "id": 6
+            },
+            "getModuleConfigRequest": {
+              "type": "AdminMessage.ModuleConfigType",
+              "id": 7
+            },
+            "getModuleConfigResponse": {
+              "type": "ModuleConfig",
+              "id": 8
+            },
+            "setOwner": {
+              "type": "User",
+              "id": 32
+            },
+            "setChannel": {
+              "type": "Channel",
+              "id": 33
+            },
+            "setConfig": {
+              "type": "Config",
+              "id": 34
+            },
+            "setModuleConfig": {
+              "type": "ModuleConfig",
+              "id": 35
+            },
+            "removeByNodenum": {
+              "type": "uint32",
+              "id": 36
+            },
+            "setHamMode": {
+              "type": "bool",
+              "id": 37
+            },
+            "nodeRemoteHardwarePins": {
+              "type": "bool",
+              "id": 38
+            }
+          },
+          "nested": {
+            "ConfigType": {
+              "values": {
+                "DEVICE_CONFIG": 0,
+                "POSITION_CONFIG": 1,
+                "POWER_CONFIG": 2,
+                "NETWORK_CONFIG": 3,
+                "DISPLAY_CONFIG": 4,
+                "LORA_CONFIG": 5,
+                "BLUETOOTH_CONFIG": 6
+              }
+            },
+            "ModuleConfigType": {
+              "values": {
+                "MQTT_CONFIG": 0,
+                "SERIAL_CONFIG": 1,
+                "EXTNOTIF_CONFIG": 2,
+                "STOREFORWARD_CONFIG": 3,
+                "RANGETEST_CONFIG": 4,
+                "TELEMETRY_CONFIG": 5,
+                "CANNEDMSG_CONFIG": 6,
+                "AUDIO_CONFIG": 7,
+                "REMOTEHARDWARE_CONFIG": 8,
+                "NEIGHBORINFO_CONFIG": 9,
+                "AMBIENTLIGHTING_CONFIG": 10,
+                "DETECTIONSENSOR_CONFIG": 11,
+                "PAXCOUNTER_CONFIG": 12
+              }
+            }
+          }
+        },
+        "ToRadio": {
+          "oneofs": {
+            "payloadVariant": {
+              "oneof": [
+                "packet",
+                "wantConfigId",
+                "admin",
+                "heartbeat"
+              ]
+            }
+          },
+          "fields": {
+            "packet": {
+              "type": "MeshPacket",
+              "id": 1
+            },
+            "wantConfigId": {
+              "type": "uint32",
+              "id": 3
+            },
+            "admin": {
+              "type": "AdminMessage",
+              "id": 4
+            },
+            "heartbeat": {
+              "type": "bool",
+              "id": 7
+            }
+          }
+        },
+        "MeshPacket": {
+          "oneofs": {
+            "payloadVariant": {
+              "oneof": [
+                "decoded",
+                "encrypted"
+              ]
+            }
+          },
+          "fields": {
+            "to": {
+              "type": "fixed32",
+              "id": 1
+            },
+            "from": {
+              "type": "fixed32",
+              "id": 2
+            },
+            "decoded": {
+              "type": "Data",
+              "id": 3
+            },
+            "encrypted": {
+              "type": "bytes",
+              "id": 8
+            },
+            "id": {
+              "type": "fixed32",
+              "id": 6
+            },
+            "rxTime": {
+              "type": "fixed32",
+              "id": 9
+            },
+            "rxSnr": {
+              "type": "float",
+              "id": 10
+            },
+            "hopLimit": {
+              "type": "uint32",
+              "id": 11
+            },
+            "wantAck": {
+              "type": "bool",
+              "id": 12
+            },
+            "channel": {
+              "type": "fixed32",
+              "id": 15
+            },
+            "viaMqtt": {
+              "type": "bool",
+              "id": 16
+            },
+            "hopStart": {
+              "type": "uint32",
+              "id": 17
+            }
+          }
+        },
+        "Data": {
+          "fields": {
+            "portnum": {
+              "type": "uint32",
+              "id": 1
+            },
+            "payload": {
+              "type": "bytes",
+              "id": 2
+            },
+            "wantResponse": {
+              "type": "bool",
+              "id": 3
+            },
+            "dest": {
+              "type": "fixed32",
+              "id": 4
+            },
+            "source": {
+              "type": "fixed32",
+              "id": 5
+            },
+            "requestId": {
+              "type": "fixed32",
+              "id": 6
+            },
+            "replyId": {
+              "type": "fixed32",
+              "id": 7
+            },
+            "emoji": {
+              "type": "fixed32",
+              "id": 8
+            }
+          }
+        },
+        "FromRadio": {
+          "oneofs": {
+            "payloadVariant": {
+              "oneof": [
+                "packet",
+                "myInfo",
+                "nodeInfo",
+                "config",
+                "logRecord",
+                "configCompleteId",
+                "channel",
+                "moduleConfig",
+                "deviceMetadata",
+                "clientNotification"
+              ]
+            }
+          },
+          "fields": {
+            "num": {
+              "type": "uint32",
+              "id": 1
+            },
+            "packet": {
+              "type": "MeshPacket",
+              "id": 2
+            },
+            "myInfo": {
+              "type": "MyNodeInfo",
+              "id": 3
+            },
+            "nodeInfo": {
+              "type": "NodeInfo",
+              "id": 4
+            },
+            "config": {
+              "type": "Config",
+              "id": 5
+            },
+            "logRecord": {
+              "type": "LogRecord",
+              "id": 7
+            },
+            "configCompleteId": {
+              "type": "uint32",
+              "id": 8
+            },
+            "channel": {
+              "type": "Channel",
+              "id": 10
+            },
+            "moduleConfig": {
+              "type": "ModuleConfig",
+              "id": 11
+            },
+            "deviceMetadata": {
+              "type": "DeviceMetadata",
+              "id": 12
+            },
+            "clientNotification": {
+              "type": "ClientNotification",
+              "id": 14
+            }
+          }
+        },
+        "LogRecord": {
+          "fields": {
+            "message": {
+              "type": "string",
+              "id": 1
+            },
+            "time": {
+              "type": "fixed32",
+              "id": 2
+            },
+            "source": {
+              "type": "string",
+              "id": 3
+            },
+            "level": {
+              "type": "uint32",
+              "id": 4
+            }
+          }
+        },
+        "ClientNotification": {
+          "fields": {
+            "replyId": {
+              "type": "fixed32",
+              "id": 1,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "time": {
+              "type": "fixed32",
+              "id": 2
+            },
+            "level": {
+              "type": "uint32",
+              "id": 3
+            },
+            "message": {
+              "type": "string",
+              "id": 4
+            }
+          }
+        }
+      }
+    }
+  }
+}
