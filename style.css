@@ -1,1 +1,183 @@
+/* MeshConfig — style.css */
 
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: #1a1a2e;
+  color: #e0e0e0;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+header {
+  text-align: center;
+  padding: 2rem 0 1rem;
+  border-bottom: 1px solid #333;
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  font-size: 2rem;
+  color: #67e8a0;
+  letter-spacing: 2px;
+}
+
+header .subtitle {
+  font-size: 0.9rem;
+  color: #888;
+  margin-top: 0.25rem;
+}
+
+main {
+  max-width: 800px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+section {
+  background: #16213e;
+  border: 1px solid #0f3460;
+  border-radius: 8px;
+  padding: 1.5rem;
+}
+
+section h2 {
+  font-size: 1rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #67e8a0;
+  margin-bottom: 1rem;
+}
+
+.hidden {
+  display: none;
+}
+
+/* Buttons */
+button {
+  background: #0f3460;
+  color: #e0e0e0;
+  border: 1px solid #67e8a0;
+  border-radius: 4px;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s;
+}
+
+button:hover {
+  background: #1a5276;
+}
+
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Connection status */
+.status {
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+  font-weight: bold;
+}
+
+.status--disconnected {
+  background: #3d1a1a;
+  color: #e07070;
+}
+
+.status--connected {
+  background: #1a3d2b;
+  color: #67e8a0;
+}
+
+.status--connecting {
+  background: #3d3500;
+  color: #e0c050;
+}
+
+/* Node info table */
+#node-info-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+#node-info-table td {
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid #1e3a5f;
+  font-size: 0.9rem;
+}
+
+#node-info-table td:first-child {
+  color: #888;
+  width: 30%;
+}
+
+/* Profile buttons */
+#profile-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.btn-profile {
+  flex: 1 1 150px;
+}
+
+/* Backup section */
+#section-backup hr {
+  border: none;
+  border-top: 1px solid #0f3460;
+  margin: 1rem 0;
+}
+
+#section-backup label {
+  display: block;
+  font-size: 0.85rem;
+  color: #888;
+  margin-bottom: 0.4rem;
+}
+
+#section-backup input[type="file"] {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: #e0e0e0;
+}
+
+/* Raw config display */
+#config-display {
+  background: #0d1117;
+  border: 1px solid #0f3460;
+  border-radius: 4px;
+  padding: 1rem;
+  font-size: 0.8rem;
+  font-family: 'Courier New', monospace;
+  white-space: pre-wrap;
+  max-height: 400px;
+  overflow-y: auto;
+  color: #a0c8a0;
+}
+
+footer {
+  text-align: center;
+  margin-top: 3rem;
+  padding: 1rem;
+  font-size: 0.8rem;
+  color: #555;
+}
+
+footer a {
+  color: #67e8a0;
+  text-decoration: none;
+}
