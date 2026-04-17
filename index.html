@@ -15,7 +15,7 @@
 
   <main>
 
-    <!-- Section 1: Connection -->
+    <!-- Connection -->
     <section id="section-connect">
       <h2>Connection</h2>
       <button id="btn-connect">Connect via USB</button>
@@ -23,7 +23,7 @@
       <div id="proto-status" class="status status--disconnected" style="margin-left:0.5rem;">Proto: not loaded</div>
     </section>
 
-    <!-- Section 2: Node Info (hidden until connected) -->
+    <!-- Node Info -->
     <section id="section-nodeinfo" class="hidden">
       <h2>Node Info</h2>
       <table id="node-info-table">
@@ -37,19 +37,54 @@
       </table>
     </section>
 
-    <!-- Section 3: Profiles (hidden until connected) -->
-    <section id="section-profiles" class="hidden">
-      <h2>Profiles</h2>
-      <p>Select a profile to apply a preset configuration to the node.</p>
-      <div id="profile-list">
-        <button class="btn-profile" data-profile="solar">Solar / Fixed Install</button>
-        <button class="btn-profile" data-profile="handheld">Handheld / Personal</button>
-        <button class="btn-profile" data-profile="repeater">Repeater</button>
-        <button class="btn-profile" data-profile="sensor">Sensor</button>
+    <!-- Config Editor -->
+    <section id="section-editor" class="hidden">
+      <h2>Configuration Editor</h2>
+
+      <!-- Template cards -->
+      <p class="hint">Select a starting template, then adjust individual fields below.</p>
+      <div id="template-cards">
+        <div class="tpl-card" data-tpl="solar" onclick="loadTemplate('solar')">
+          <div class="tpl-icon">☀️</div>
+          <div class="tpl-body">
+            <div class="tpl-label">Solar / Fixed Install</div>
+            <div class="tpl-desc">Power saving, infrequent TX, CLIENT_MUTE role</div>
+          </div>
+        </div>
+        <div class="tpl-card" data-tpl="handheld" onclick="loadTemplate('handheld')">
+          <div class="tpl-icon">🎒</div>
+          <div class="tpl-body">
+            <div class="tpl-label">Handheld / Personal</div>
+            <div class="tpl-desc">BT active, normal TX, frequent position</div>
+          </div>
+        </div>
+        <div class="tpl-card" data-tpl="repeater" onclick="loadTemplate('repeater')">
+          <div class="tpl-icon">📡</div>
+          <div class="tpl-body">
+            <div class="tpl-label">Repeater</div>
+            <div class="tpl-desc">ROUTER role, max hop limit, no client features</div>
+          </div>
+        </div>
+        <div class="tpl-card" data-tpl="sensor" onclick="loadTemplate('sensor')">
+          <div class="tpl-icon">🌡️</div>
+          <div class="tpl-body">
+            <div class="tpl-label">Sensor Node</div>
+            <div class="tpl-desc">SENSOR role, muted, low TX, telemetry focus</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Section tabs + form (shown after template selected) -->
+      <div id="editor-form" class="hidden">
+        <div id="editor-tabs"></div>
+        <div id="editor-panel" class="panel"></div>
+        <div class="editor-actions">
+          <button id="btn-apply-config" onclick="applyEditorConfig()">Apply to Node</button>
+        </div>
       </div>
     </section>
 
-    <!-- Section 4: Backup & Restore (hidden until connected) -->
+    <!-- Backup & Restore -->
     <section id="section-backup" class="hidden">
       <h2>Backup &amp; Restore</h2>
       <button id="btn-backup">Export config to YAML</button>
@@ -59,9 +94,9 @@
       <button id="btn-restore">Apply to node</button>
     </section>
 
-    <!-- Section 5: Raw Config (hidden until connected) -->
+    <!-- Raw config -->
     <section id="section-config" class="hidden">
-      <h2>Current Configuration</h2>
+      <h2>Current Configuration (raw)</h2>
       <pre id="config-display">No config loaded.</pre>
     </section>
 
@@ -71,14 +106,16 @@
     <p>MeshConfig — <a href="https://meshtastic.org" target="_blank">meshtastic.org</a> — WebSerial requires Chrome or Edge</p>
   </footer>
 
-  <!--
-    protobufjs light build (~16kb gzip).
-    Exposes window.protobuf - used to load meshtastic.proto.json at runtime.
-    Pinned to 7.4.0 for stability. To update: re-validate meshtastic.proto.json
-    with new version before changing this tag.
-  -->
   <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
   <script src="app.js"></script>
+  <script>
+    // Show editor form after template selection
+    const _origLoadTemplate = loadTemplate;
+    loadTemplate = function(id) {
+      _origLoadTemplate(id);
+      document.getElementById('editor-form').classList.remove('hidden');
+    };
+  </script>
 
 </body>
 </html>
