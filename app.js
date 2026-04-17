@@ -260,7 +260,8 @@ async function readLoop() {
           dispatchFromRadio(msg);
           ok = true;
         } catch (e) {
-          console.debug("False sync skipped:", e.message.substring(0, 80));
+          const hex = Array.from(payload).map(b => b.toString(16).padStart(2,'0')).join(' ');
+          console.log(`DECODE FAIL (${payloadLen}b): ${e.message} | HEX: ${hex}`);
         }
 
         consume(ok ? 4 + payloadLen : 1);
