@@ -1490,7 +1490,9 @@
                 "channel",
                 "moduleConfig",
                 "deviceMetadata",
-                "clientNotification"
+                "clientNotification",
+                "queueStatus",
+                "deviceUiConfig"
               ]
             }
           },
@@ -1538,6 +1540,17 @@
             "clientNotification": {
               "type": "ClientNotification",
               "id": 14
+            },
+            "queueStatus": {
+              "type": "uint32",
+              "id": 13,
+              "options": {
+                "proto3_optional": true
+              }
+            },
+            "deviceUiConfig": {
+              "type": "bytes",
+              "id": 15
             }
           }
         },
