@@ -161,11 +161,15 @@
             },
             "role": {
               "type": "Config.DeviceConfig.Role",
-              "id": 8
+              "id": 9
             },
             "publicKey": {
               "type": "bytes",
-              "id": 9
+              "id": 8
+            },
+            "team": {
+              "type": "uint32",
+              "id": 5
             }
           }
         },
@@ -269,6 +273,14 @@
             "hasRemoteHardware": {
               "type": "bool",
               "id": 10
+            },
+            "numOnlineLocalNodes": {
+              "type": "uint32",
+              "id": 11
+            },
+            "excluded_modules": {
+              "type": "uint32",
+              "id": 12
             }
           }
         },
@@ -1491,7 +1503,6 @@
                 "moduleConfig",
                 "deviceMetadata",
                 "clientNotification",
-                "queueStatus",
                 "deviceUiConfig"
               ]
             }
@@ -1535,18 +1546,11 @@
             },
             "deviceMetadata": {
               "type": "DeviceMetadata",
-              "id": 12
+              "id": 13
             },
             "clientNotification": {
               "type": "ClientNotification",
               "id": 14
-            },
-            "queueStatus": {
-              "type": "uint32",
-              "id": 13,
-              "options": {
-                "proto3_optional": true
-              }
             },
             "deviceUiConfig": {
               "type": "bytes",
