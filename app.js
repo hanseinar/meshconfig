@@ -240,9 +240,14 @@ async function readLoop() {
 function handleFromRadio(bytes) {
   let msg;
   try { msg = Types.FromRadio.decode(bytes); }
-  catch (err) { console.warn("FromRadio decode error:", err.message); return; }
+  catch (err) { console.debug("FromRadio framing/decode:", err.message); return; }
 
   const v = msg.payloadVariant;
+  if (!v) {
+    // Packet with no recognised oneof field (keepalive, unknown field, or framing artifact)
+    console.debug("FromRadio: no payload variant, num=", msg.num);
+    return;
+  }
   console.log("FromRadio:", v);
 
   switch (v) {
