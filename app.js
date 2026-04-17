@@ -135,13 +135,13 @@ async function connect() {
     setStatus("connected");
     btnConnect.textContent = "Disconnect";
     showConnectedSections();
+    // Send wantConfigId first, THEN start read loop.
+    // This ensures the device has switched to protobuf mode before we start parsing.
+    await sendWantConfig();
     readLoop().catch(err => {
       console.warn("Read loop ended:", err.message);
       if (state.connected) disconnect();
     });
-    // Wait for device to finish any debug output before sending wantConfigId
-    await sleep(600);
-    await sendWantConfig();
   } catch (err) {
     console.error("Connection failed:", err);
     setStatus("disconnected");
@@ -242,12 +242,16 @@ async function readLoop() {
 function handleFromRadio(bytes) {
   let msg;
   try { msg = Types.FromRadio.decode(bytes); }
-  catch (err) { console.debug("FromRadio framing/decode:", err.message); return; }
+  catch (err) {
+    console.log("FromRadio decode error:", err.message,
+      "— bytes[0..7]:", Array.from(bytes.slice(0,8)).map(b => b.toString(16).padStart(2,'0')).join(' '));
+    return;
+  }
 
   const v = msg.payloadVariant;
   if (!v) {
-    // Packet with no recognised oneof field (keepalive, unknown field, or framing artifact)
-    console.debug("FromRadio: no payload variant, num=", msg.num);
+    // Packet decoded OK but no recognised oneof field - log full object to diagnose
+    console.log("FromRadio: unknown variant — raw msg:", JSON.stringify(msg));
     return;
   }
   console.log("FromRadio:", v);
