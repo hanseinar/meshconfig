@@ -184,12 +184,32 @@ async function sendWantConfig() {
   console.log("Sent wantConfigId");
 }
 
-// ─── Read loop ────────────────────────────────────────────────────────────────
+// ─── Read loop — sliding window framing ─────────────────────────────────────
+// Accumulates bytes in rxBuf. For each candidate sync (0x94 0xC3):
+//   - If decode succeeds  → consume header + payload, emit packet
+//   - If decode fails     → skip 1 byte, try next sync position
+// This prevents false syncs inside real packet payloads from eating real data.
 
 async function readLoop() {
   state.reader = state.port.readable.getReader();
-  let parseState = "WAIT_START1";
-  let payloadLen = 0, payloadBuf = null, payloadPos = 0;
+
+  let rxBuf = new Uint8Array(8192);
+  let rxLen = 0;
+
+  const append = (bytes) => {
+    if (rxLen + bytes.length > rxBuf.length) {
+      const nb = new Uint8Array(Math.max(rxBuf.length * 2, rxLen + bytes.length + 1024));
+      nb.set(rxBuf.subarray(0, rxLen));
+      rxBuf = nb;
+    }
+    rxBuf.set(bytes, rxLen);
+    rxLen += bytes.length;
+  };
+
+  const consume = (n) => {
+    rxBuf.copyWithin(0, n);
+    rxLen -= n;
+  };
 
   try {
     while (state.connected) {
@@ -197,75 +217,84 @@ async function readLoop() {
       if (done) break;
       if (!value || value.length === 0) continue;
 
-      for (let i = 0; i < value.length; i++) {
-        const byte = value[i];
-        switch (parseState) {
-          case "WAIT_START1":
-            if (byte === START1) parseState = "WAIT_START2";
-            break;
-          case "WAIT_START2":
-            parseState = (byte === START2) ? "READ_LEN_MSB" : "WAIT_START1";
-            break;
-          case "READ_LEN_MSB":
-            payloadLen = byte << 8;
-            parseState = "READ_LEN_LSB";
-            break;
-          case "READ_LEN_LSB":
-            payloadLen |= byte;
-            if (payloadLen === 0 || payloadLen > MAX_PACKET) {
-              console.warn("Invalid packet length:", payloadLen);
-              parseState = "WAIT_START1";
-            } else {
-              payloadBuf = new Uint8Array(payloadLen);
-              payloadPos = 0;
-              parseState = "READ_PAYLOAD";
-            }
-            break;
-          case "READ_PAYLOAD":
-            payloadBuf[payloadPos++] = byte;
-            if (payloadPos === payloadLen) {
-              handleFromRadio(payloadBuf.slice());
-              parseState = "WAIT_START1";
-            }
-            break;
+      append(value);
+
+      // Process all decodable packets in buffer
+      let progress = true;
+      while (progress) {
+        progress = false;
+
+        // Find next sync candidate
+        let syncPos = -1;
+        for (let i = 0; i < rxLen - 1; i++) {
+          if (rxBuf[i] === START1 && rxBuf[i + 1] === START2) { syncPos = i; break; }
         }
+
+        if (syncPos < 0) {
+          // No sync — discard all but last byte (could be partial START1)
+          if (rxLen > 1) consume(rxLen - 1);
+          break;
+        }
+
+        // Discard pre-sync garbage bytes
+        if (syncPos > 0) { consume(syncPos); progress = true; continue; }
+
+        // Need 4-byte header
+        if (rxLen < 4) break;
+
+        const payloadLen = (rxBuf[2] << 8) | rxBuf[3];
+
+        if (payloadLen === 0 || payloadLen > MAX_PACKET) {
+          // Invalid length — skip this START1
+          consume(1); progress = true; continue;
+        }
+
+        // Wait until full payload buffered
+        if (rxLen < 4 + payloadLen) break;
+
+        // Attempt decode
+        const payload = rxBuf.slice(4, 4 + payloadLen);
+        let ok = false;
+        try {
+          const msg = Types.FromRadio.decode(payload);
+          dispatchFromRadio(msg);
+          ok = true;
+        } catch (e) {
+          console.debug("False sync skipped:", e.message.substring(0, 80));
+        }
+
+        consume(ok ? 4 + payloadLen : 1);
+        progress = true;
       }
     }
   } finally {
-    try { state.reader.releaseLock(); } catch(_) {}
+    try { state.reader.releaseLock(); } catch (_) {}
     state.reader = null;
   }
 }
 
 // ─── FromRadio dispatch ───────────────────────────────────────────────────────
 
-function handleFromRadio(bytes) {
-  let msg;
-  try { msg = Types.FromRadio.decode(bytes); }
-  catch (err) {
-    console.log("FromRadio decode error:", err.message,
-      "— bytes[0..7]:", Array.from(bytes.slice(0,8)).map(b => b.toString(16).padStart(2,'0')).join(' '));
-    return;
-  }
-
+function dispatchFromRadio(msg) {
   const v = msg.payloadVariant;
   if (!v) {
-    // Packet decoded OK but no recognised oneof field - log full object to diagnose
-    console.log("FromRadio: unknown variant — raw msg:", JSON.stringify(msg));
+    console.debug("FromRadio: no variant (num=" + msg.num + ")");
     return;
   }
   console.log("FromRadio:", v);
 
   switch (v) {
-    case "myInfo":          handleMyInfo(msg.myInfo);                break;
-    case "nodeInfo":        handleNodeInfo(msg.nodeInfo);            break;
-    case "config":          handleConfig(msg.config);                break;
-    case "moduleConfig":    handleModuleConfig(msg.moduleConfig);    break;
-    case "channel":         handleChannel(msg.channel);              break;
-    case "deviceMetadata":  handleDeviceMetadata(msg.deviceMetadata);break;
+    case "myInfo":          handleMyInfo(msg.myInfo);                 break;
+    case "nodeInfo":        handleNodeInfo(msg.nodeInfo);             break;
+    case "config":          handleConfig(msg.config);                 break;
+    case "moduleConfig":    handleModuleConfig(msg.moduleConfig);     break;
+    case "channel":         handleChannel(msg.channel);               break;
+    case "deviceMetadata":  handleDeviceMetadata(msg.deviceMetadata); break;
     case "configCompleteId":handleConfigComplete(msg.configCompleteId);break;
-    case "logRecord":       console.debug("[Node]", msg.logRecord.message); break;
-    default: break;
+    case "queueStatus":     break; // known, ignored
+    case "deviceUiConfig":  break; // known, ignored
+    case "logRecord":       console.debug("[Node]", msg.logRecord?.message); break;
+    default:                console.debug("FromRadio: unhandled variant:", v); break;
   }
 }
 
