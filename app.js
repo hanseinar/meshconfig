@@ -139,6 +139,8 @@ async function connect() {
       console.warn("Read loop ended:", err.message);
       if (state.connected) disconnect();
     });
+    // Wait for device to finish any debug output before sending wantConfigId
+    await sleep(600);
     await sendWantConfig();
   } catch (err) {
     console.error("Connection failed:", err);
@@ -271,17 +273,27 @@ function handleMyInfo(myInfo) {
     ? "!" + myInfo.myNodeNum.toString(16).padStart(8, "0")
     : "—";
   document.getElementById("info-id").textContent = hexId;
+  // In case nodeInfo arrived before myInfo
+  updateOwnNodeDisplay();
 }
 
 function handleNodeInfo(nodeInfo) {
-  if (state.myInfo && nodeInfo.num === state.myInfo.myNodeNum) {
-    state.nodeInfo = nodeInfo;
-    const u = nodeInfo.user || {};
-    document.getElementById("info-name").textContent      = u.longName  || "—";
-    document.getElementById("info-shortname").textContent = u.shortName || "—";
-    document.getElementById("info-hw").textContent        = HW_NAMES[u.hwModel] || String(u.hwModel || "—");
-    document.getElementById("info-role").textContent      = ROLE_NAMES[u.role]  || String(u.role   || "—");
-  }
+  // Store all nodeInfos; display update happens in updateOwnNodeDisplay()
+  state.nodeInfos = state.nodeInfos || {};
+  state.nodeInfos[nodeInfo.num] = nodeInfo;
+  updateOwnNodeDisplay();
+}
+
+function updateOwnNodeDisplay() {
+  if (!state.myInfo || !state.nodeInfos) return;
+  const own = state.nodeInfos[state.myInfo.myNodeNum];
+  if (!own) return;
+  state.nodeInfo = own;
+  const u = own.user || {};
+  document.getElementById("info-name").textContent      = u.longName  || "—";
+  document.getElementById("info-shortname").textContent = u.shortName || "—";
+  document.getElementById("info-hw").textContent        = HW_NAMES[u.hwModel] || String(u.hwModel || "—");
+  document.getElementById("info-role").textContent      = ROLE_NAMES[u.role]  || String(u.role   || "—");
 }
 
 function handleConfig(config) {
