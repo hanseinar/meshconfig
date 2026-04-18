@@ -79,7 +79,7 @@ const FUNCTIONS = {
         isPowerSaving: false,
         waitBluetoothSecs: 60,
       },
-      bluetooth: { enabled: true },
+      bluetooth: { enabled: true, mode: 1, fixedPin: 123456 },
     },
   },
   fixed: {
@@ -106,7 +106,7 @@ const FUNCTIONS = {
         minWakeSecs: 10,
         sdsSecs: 4294967295,
       },
-      bluetooth: { enabled: true },
+      bluetooth: { enabled: true, mode: 1, fixedPin: 123456 },
     },
   },
   repeater: {
