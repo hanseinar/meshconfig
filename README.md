@@ -147,4 +147,12 @@ MIT
 
 ---
 
+## Author
+
+Developed by **Hans Einar Steinsland** — amateur radio operator [LA8DKA](https://www.qrz.com/db/LA8DKA), Stavanger, Norway.
+
+Active in local emergency preparedness, mesh networking and LoRa/APRS experimentation in the Rogaland region.
+
+---
+
 *Not an official Meshtastic project. For the official web client, see [client.meshtastic.org](https://client.meshtastic.org).*
