@@ -109,7 +109,7 @@
         <div id="editor-tabs"></div>
         <div id="editor-panel" class="panel"></div>
         <div class="editor-actions">
-          <button id="btn-apply-config" onclick="applyEditorConfig()">▶ Apply to Node</button>
+          <button id="btn-apply-config" onclick="applyEditorConfig()">▶ Apply all sections to Node</button>
         </div>
       </div>
     </section>
@@ -118,17 +118,14 @@
     <section id="section-backup" class="hidden">
       <h2>Backup &amp; Restore</h2>
       <button id="btn-backup">Export config to YAML</button>
+      <p class="hint" style="margin-top:0.5rem;">Exports all sections — use this to inspect or archive the full node configuration.</p>
       <hr />
       <label for="input-restore">Import config from YAML:</label>
       <input type="file" id="input-restore" accept=".yaml,.yml" />
       <button id="btn-restore">Apply to node</button>
     </section>
 
-    <!-- ── Raw config ───────────────────────────────────────────────────────── -->
-    <section id="section-config" class="hidden">
-      <h2>Current Configuration (raw)</h2>
-      <pre id="config-display">No config loaded.</pre>
-    </section>
+    <!-- Raw config section removed — use Export YAML to inspect full config -->
 
   </main>
 
