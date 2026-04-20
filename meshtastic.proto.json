@@ -1266,7 +1266,9 @@
                 "setModuleConfig",
                 "removeByNodenum",
                 "setHamMode",
-                "nodeRemoteHardwarePins"
+                "nodeRemoteHardwarePins",
+                "setFixedPosition",
+                "removeFixedPosition"
               ]
             }
           },
@@ -1330,6 +1332,14 @@
             "nodeRemoteHardwarePins": {
               "type": "bool",
               "id": 38
+            },
+            "setFixedPosition": {
+              "type": "Position",
+              "id": 40
+            },
+            "removeFixedPosition": {
+              "type": "bool",
+              "id": 41
             }
           },
           "nested": {
