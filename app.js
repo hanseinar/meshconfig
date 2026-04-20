@@ -204,6 +204,12 @@ const SECTIONS = {
       { key:'positionFlags',                 label:'Position Flags',        type:'number',                      common:false,
         desc:'Bitmask controlling which position fields are included in broadcasts. Default 811 includes altitude, speed and heading.' },
     ],
+    // Fixed position coordinate fields — stored separately, sent via setFixedPosition
+    fixedFields: [
+      { key:'_lat', label:'Latitude',  type:'number', unit:'°', desc:'Decimal degrees. Example: 59.0735 for Stavanger. Required when Fixed Position is enabled.' },
+      { key:'_lon', label:'Longitude', type:'number', unit:'°', desc:'Decimal degrees. Example: 5.7502 for Stavanger.' },
+      { key:'_alt', label:'Altitude',  type:'number', unit:'m', desc:'Altitude in metres above sea level.' },
+    ],
   },
   power: {
     label: 'Power', icon: '🔋',
@@ -601,6 +607,12 @@ function rebuildEditorState() {
     if (!editorState[section]) editorState[section] = {};
     Object.assign(editorState[section], values);
   }
+  // Pre-fill fixed position coords from nodeInfo if available
+  if (!editorState.position) editorState.position = {};
+  const pos = state.nodeInfo?.position;
+  editorState.position._lat = pos?.latitudeI  ? (pos.latitudeI  / 1e7).toFixed(6) : '';
+  editorState.position._lon = pos?.longitudeI ? (pos.longitudeI / 1e7).toFixed(6) : '';
+  editorState.position._alt = pos?.altitude   ?? '';
 }
 
 // ─── Editor render ────────────────────────────────────────────────────────────
@@ -631,7 +643,27 @@ function renderEditorPanel(sectionKey) {
     html += `<details class="advanced-section"><summary>▶ Advanced</summary>
       <div class="field-group advanced-fields">${advanced.map(f=>renderField(f,data[f.key])).join('')}</div>
     </details>`;
+
+  // Fixed position coordinate fields — shown for position section only
+  if (sectionKey === 'position' && section.fixedFields) {
+    const fixedVisible = data.fixedPosition ? '' : ' style="display:none"';
+    html += `<div id="fixed-coords-wrap"${fixedVisible}>
+      <div class="fixed-coords-header">📍 Fixed position coordinates</div>
+      <div class="field-group">${section.fixedFields.map(f=>renderField(f,data[f.key])).join('')}</div>
+    </div>`;
+  }
+
   panel.innerHTML = html;
+
+  // Toggle coordinate fields when fixedPosition checkbox changes
+  const fpCheck = panel.querySelector('[data-key="fixedPosition"]');
+  if (fpCheck) {
+    fpCheck.addEventListener('change', () => {
+      const wrap = document.getElementById('fixed-coords-wrap');
+      if (wrap) wrap.style.display = fpCheck.checked ? '' : 'none';
+    });
+  }
+
   // Wire private key toggle
   panel.querySelector('.pk-toggle')?.addEventListener('change', e => {
     panel.querySelector('.pk-value').style.display = e.target.checked ? '' : 'none';
@@ -722,7 +754,7 @@ function saveCurrentPanel() {
   panel.querySelectorAll('.field-input:not(.readonly):not(.pk-value)').forEach(el => {
     const key = el.dataset.key;
     if (!key) return;
-    if (el.type==='checkbox')   editorState[activeSection][key] = el.checked;
+    if (el.type==='checkbox')    editorState[activeSection][key] = el.checked;
     else if (el.type==='number') editorState[activeSection][key] = el.value!=='' ? Number(el.value) : undefined;
     else                         editorState[activeSection][key] = el.value;
   });
@@ -739,12 +771,35 @@ async function applyEditorConfig() {
   let sent = 0;
   for (const cfgType of ['device','position','power','network','display','lora','bluetooth','security']) {
     if (!editorState[cfgType]) continue;
-    const clean = Object.fromEntries(Object.entries(editorState[cfgType]).filter(([,v])=>v!==undefined));
+    // Strip internal _lat/_lon/_alt keys before sending config
+    const clean = Object.fromEntries(
+      Object.entries(editorState[cfgType]).filter(([k,v]) => !k.startsWith('_') && v!==undefined)
+    );
     try {
       await writePacket(Types.ToRadio.create({ admin: Types.AdminMessage.create({ setConfig: Types.Config.create({ [cfgType]: clean }) }) }));
       sent++; await sleep(200);
     } catch(e) { console.error('setConfig failed:', cfgType, e); }
   }
+
+  // If fixed position is enabled and coordinates are provided, send setFixedPosition
+  const posCfg = editorState.position || {};
+  if (posCfg.fixedPosition && posCfg._lat !== '' && posCfg._lon !== '') {
+    try {
+      const PositionType = Root.lookupType('meshtastic.Position');
+      const posMsg = PositionType.create({
+        latitudeI:  Math.round(Number(posCfg._lat) * 1e7),
+        longitudeI: Math.round(Number(posCfg._lon) * 1e7),
+        altitude:   posCfg._alt !== '' ? Number(posCfg._alt) : 0,
+      });
+      await writePacket(Types.ToRadio.create({
+        admin: Types.AdminMessage.create({ setFixedPosition: posMsg })
+      }));
+      sent++;
+      console.log('Sent setFixedPosition:', posCfg._lat, posCfg._lon, posCfg._alt);
+      await sleep(200);
+    } catch(e) { console.error('setFixedPosition failed:', e); }
+  }
+
   alert(`Done — ${sent} section(s) sent.\n\nThe node will apply the settings.`);
 }
 
