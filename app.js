@@ -84,29 +84,36 @@ const FUNCTIONS = {
   },
   fixed: {
     id: 'fixed', label: 'Fixed Install', icon: '🏠',
-    desc: 'Permanently mounted node (rooftop, mast, solar). CLIENT role — contributes to mesh routing. Power saving enabled, infrequent position updates, fixed GPS position recommended.',
+    desc: 'Permanently mounted node (rooftop, mast, solar). CLIENT role — contributes to mesh routing. Power saving enabled, fixed GPS position. Based on Rennesøy Hodnet configuration.',
     warn: null,
     config: {
       device: {
-        role: 0,  // CLIENT
+        role: 0,  // CLIENT (replaces deprecated CLIENT_BASE)
         nodeInfoBroadcastSecs: 10800,
         ledHeartbeatDisabled: true,
       },
       position: {
-        positionBroadcastSecs: 3600,
-        positionBroadcastSmartEnabled: false,
+        positionBroadcastSecs: 900,
+        positionBroadcastSmartEnabled: true,
         fixedPosition: true,
-        gpsMode: 1,
+        gpsMode: 1,   // ENABLED
         gpsUpdateInterval: 120,
+        positionFlags: 811,
       },
       power: {
         isPowerSaving: true,
-        waitBluetoothSecs: 10,
+        waitBluetoothSecs: 60,
         lsSecs: 300,
         minWakeSecs: 10,
-        sdsSecs: 4294967295,
+        sdsSecs: 4294967295,  // never — node manages its own deep sleep
+      },
+      display: {
+        screenOnSecs: 600,
       },
       bluetooth: { enabled: true, mode: 1, fixedPin: 123456 },
+      network: {
+        ntpServer: 'meshtastic.pool.ntp.org',
+      },
     },
   },
   repeater: {
@@ -547,8 +554,7 @@ function handleConfigComplete() {
 }
 
 function refreshConfigDisplay() {
-  const prefix = state.configDone ? '' : '// Receiving config...\n\n';
-  configDisplay.textContent = prefix + JSON.stringify({config:state.config, moduleConfig:state.moduleConfig},null,2);
+  // Raw config display removed from UI — config available via Export YAML backup
 }
 
 function labelFor(opts, val) {
@@ -695,16 +701,20 @@ function renderField(f, value) {
         <span class="toggle-slider"></span>
       </label>`;
       break;
-    case 'number':
+    case 'number': {
+      const isNever = (v === 4294967295 || v === '4294967295');
+      const displayVal = isNever ? '' : v;
+      const ph = isNever ? 'never (0xFFFFFFFF)' : (f.unit || '');
       input = `<div class="num-wrap">
-        <input type="number" class="field-input" data-key="${f.key}" value="${v}"
+        <input type="number" class="field-input" data-key="${f.key}" value="${displayVal}"
           ${f.min!==undefined?`min="${f.min}"`:''}
           ${f.max!==undefined?`max="${f.max}"`:''}
-          ${f.unit?`placeholder="${f.unit}"`:''}
+          placeholder="${ph}"
           step="any">
         ${f.unit?`<span class="unit">${f.unit}</span>`:''}
       </div>`;
       break;
+    }
     case 'password':
       input = `<input type="password" class="field-input" data-key="${f.key}" value="${v}" autocomplete="off">`;
       break;
@@ -755,8 +765,15 @@ function saveCurrentPanel() {
     const key = el.dataset.key;
     if (!key) return;
     if (el.type==='checkbox')    editorState[activeSection][key] = el.checked;
-    else if (el.type==='number') editorState[activeSection][key] = el.value!=='' ? Number(el.value) : undefined;
-    else                         editorState[activeSection][key] = el.value;
+    else if (el.type==='number') {
+      if (el.value === '') {
+        // Preserve 4294967295 ("never") if placeholder indicates it
+        editorState[activeSection][key] = el.placeholder.startsWith('never') ? 4294967295 : undefined;
+      } else {
+        editorState[activeSection][key] = Number(el.value);
+      }
+    }
+    else editorState[activeSection][key] = el.value;
   });
 }
 
@@ -765,8 +782,8 @@ async function applyEditorConfig() {
   saveCurrentPanel();
   const net = NETWORKS[activeNetworkId];
   const fn  = FUNCTIONS[activeFunctionId];
-  const summary = `Network: ${net?.label||'—'}\nFunction: ${fn?.label||'—'}\n\nThis will write all modified sections to the device.`;
-  if (!confirm(`Apply configuration to node?\n\n${summary}`)) return;
+  const summary = `Network:  ${net?.label||'—'}\nFunction: ${fn?.label||'—'}\n\nAll 8 configuration sections will be written to the node:\nDevice, LoRa, Position, Power, Display, Bluetooth, Network, Security.\n\nThe node will apply settings immediately.`;
+  if (!confirm(`Apply full configuration to node?\n\n${summary}`)) return;
 
   let sent = 0;
   for (const cfgType of ['device','position','power','network','display','lora','bluetooth','security']) {
@@ -800,7 +817,7 @@ async function applyEditorConfig() {
     } catch(e) { console.error('setFixedPosition failed:', e); }
   }
 
-  alert(`Done — ${sent} section(s) sent.\n\nThe node will apply the settings.`);
+  alert(`Configuration applied — ${sent} section(s) written to node.\n\nThe node will apply all settings. If you changed the LoRa region or role, the node may reboot.`);
 }
 
 // ─── Backup ───────────────────────────────────────────────────────────────────
@@ -854,11 +871,10 @@ function setStatus(s) {
 }
 
 function showConnectedSections() {
-  [sectionNodeInfo,sectionEditor,sectionBackup,sectionConfig].forEach(s=>s.classList.remove('hidden'));
+  [sectionNodeInfo,sectionEditor,sectionBackup].forEach(s=>s.classList.remove('hidden'));
 }
 function hideConnectedSections() {
-  [sectionNodeInfo,sectionEditor,sectionBackup,sectionConfig].forEach(s=>s.classList.add('hidden'));
-  configDisplay.textContent = 'No config loaded.';
+  [sectionNodeInfo,sectionEditor,sectionBackup].forEach(s=>s.classList.add('hidden'));
   ['info-name','info-shortname','info-hw','info-fw','info-id','info-role','info-region']
     .forEach(id=>document.getElementById(id).textContent='—');
 }
