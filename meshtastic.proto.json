@@ -1270,7 +1270,8 @@
                 "setFixedPosition",
                 "removeFixedPosition",
                 "beginEditSettings",
-                "commitEditSettings"
+                "commitEditSettings",
+                "rebootSeconds"
               ]
             }
           },
@@ -1350,6 +1351,14 @@
             "commitEditSettings": {
               "type": "bool",
               "id": 65
+            },
+            "sessionPasskey": {
+              "type": "bytes",
+              "id": 256
+            },
+            "rebootSeconds": {
+              "type": "int32",
+              "id": 97
             }
           },
           "nested": {
@@ -1361,7 +1370,8 @@
                 "NETWORK_CONFIG": 3,
                 "DISPLAY_CONFIG": 4,
                 "LORA_CONFIG": 5,
-                "BLUETOOTH_CONFIG": 6
+                "BLUETOOTH_CONFIG": 6,
+                "SESSIONKEY_CONFIG": 8
               }
             },
             "ModuleConfigType": {
