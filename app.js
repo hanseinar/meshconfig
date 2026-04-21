@@ -500,8 +500,9 @@ async function disconnect() {
 // ─── Serial write ─────────────────────────────────────────────────────────────
 
 async function writePacket(msg) {
-  if (!state.writer) return;
+  if (!state.writer) { console.error('writePacket: no writer!'); return; }
   const payload = Types.ToRadio.encode(msg).finish();
+  console.log('writePacket:', payload.length, 'bytes, payload[0..3]:', Array.from(payload.slice(0,4)).map(b=>b.toString(16)).join(' '));
   if (payload.length > MAX_PACKET) { console.error('Packet too large'); return; }
   const frame = new Uint8Array(4 + payload.length);
   frame[0]=START1; frame[1]=START2;
@@ -895,8 +896,10 @@ function updateApplyButtons() {
 // ─── Apply to node (with transaction) ────────────────────────────────────────
 
 async function applyToNode() {
+  console.log('applyToNode called. connected:', state.connected, 'configDone:', state.configDone, 'writer:', !!state.writer);
   if (!state.connected)   { alert('Not connected to a node.'); return; }
   if (!state.configDone)  { alert('Node config not fully loaded yet.'); return; }
+  if (!state.writer)      { alert('Serial writer not available. Try disconnecting and reconnecting.'); return; }
   saveCurrentPanel();
 
   const changes = [];
