@@ -1268,7 +1268,9 @@
                 "setHamMode",
                 "nodeRemoteHardwarePins",
                 "setFixedPosition",
-                "removeFixedPosition"
+                "removeFixedPosition",
+                "beginEditSettings",
+                "commitEditSettings"
               ]
             }
           },
@@ -1340,6 +1342,14 @@
             "removeFixedPosition": {
               "type": "bool",
               "id": 41
+            },
+            "beginEditSettings": {
+              "type": "bool",
+              "id": 64
+            },
+            "commitEditSettings": {
+              "type": "bool",
+              "id": 65
             }
           },
           "nested": {
