@@ -1010,12 +1010,11 @@ async function rebootNode() {
 
   await sleep(1000);
 
-  // Test 2: send reboot via ToRadio.admin
-  console.log('Test 2: sending reboot via ToRadio.admin...');
+  // Test 2: send reboot via MeshPacket with from=0 (local auth bypass)
+  console.log('Test 2: sending reboot via MeshPacket from=0...');
   const rebootMsg = Types.AdminMessage.create({ rebootSeconds: 5 });
-  const tr = Types.ToRadio.create({ admin: rebootMsg });
   try {
-    await writePacket(tr);
+    await sendAdmin(rebootMsg);
     console.log('Test 2 write: OK — watching for reboot response...');
   } catch(e) { console.error('Test 2 write FAILED:', e); }
 
