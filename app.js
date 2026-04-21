@@ -547,7 +547,7 @@ async function sendAdminRaw(adminMsg, wantResponse=false) {
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
   const packet  = MeshPkt.create({
     to:      nodeNum,
-    from:    0,
+    from:    nodeNum,    // must match myNodeNum — firmware uses this for local auth
     decoded: Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
     id:      (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
     wantAck: false,
