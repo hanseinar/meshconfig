@@ -511,8 +511,20 @@ async function writePacket(msg) {
   await state.writer.write(frame);
 }
 
+// ADMIN_APP portnum = 68
+// Admin messages must be sent as MeshPackets with portNum=68,
+// NOT via ToRadio.admin (field 4) which is ignored in firmware 2.7+
 async function sendAdmin(adminMsg) {
-  await writePacket(Types.ToRadio.create({ admin: adminMsg }));
+  const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
+  const Data = Root.lookupType('meshtastic.Data');
+  const packet = Root.lookupType('meshtastic.MeshPacket').create({
+    to:      0xffffffff,
+    decoded: Data.create({ portnum: 68, payload: adminBytes }),
+    id:      Math.floor(Math.random() * 0xffffffff),
+    wantAck: false,
+    channel: 0,
+  });
+  await writePacket(Types.ToRadio.create({ packet }));
 }
 
 async function sendWantConfig() {
