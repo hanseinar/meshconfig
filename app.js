@@ -954,6 +954,18 @@ function updateApplyButtons() {
 
 // ─── Apply to node (with transaction) ────────────────────────────────────────
 
+// Test function: send a reboot via ToRadio.admin to confirm basic comms work
+async function rebootNode() {
+  if (!state.connected) { alert('Not connected.'); return; }
+  if (!confirm('Reboot the connected node now?')) return;
+  // Use ToRadio.admin (field 4) - direct local path
+  const rebootMsg = Types.AdminMessage.create({ rebootSeconds: 3 });
+  const toRadio = Types.ToRadio.create({ admin: rebootMsg });
+  await writePacket(toRadio);
+  console.log('Reboot command sent via ToRadio.admin');
+  alert('Reboot command sent. Node should reboot in 3 seconds.');
+}
+
 async function applyToNode() {
   console.log('applyToNode called. connected:', state.connected, 'configDone:', state.configDone, 'writer:', !!state.writer);
   if (!state.connected)   { alert('Not connected to a node.'); return; }
