@@ -20,6 +20,7 @@ const state = {
 };
 
 let Root = null, Types = {};
+let adminSessionKey = null;  // bytes — obtained from node before sending admin commands
 let ROLE_OPTIONS=[], REGION_OPTIONS=[], MODEM_OPTIONS=[],
     GPS_OPTIONS=[], BT_MODE_OPTIONS=[], REBROADCAST_OPTIONS=[];
 
@@ -486,6 +487,7 @@ async function disconnect() {
   state.myInfo = state.nodeInfo = state.metadata = null;
   state.config = {}; state.moduleConfig = {}; state.channels = [];
   state.nodeInfos = {}; state.configDone = false;
+  adminSessionKey = null;
   setStatus('disconnected');
   btnConnect.textContent = 'Connect via USB';
   sectionNodeInfo.classList.add('hidden');
@@ -514,12 +516,34 @@ async function writePacket(msg) {
 // ADMIN_APP portnum = 68
 // Admin messages must be sent as MeshPackets with portNum=68,
 // NOT via ToRadio.admin (field 4) which is ignored in firmware 2.7+
+// Request a session key from the node (required by firmware 2.7+ for admin)
+async function ensureSessionKey() {
+  if (adminSessionKey) return true;
+  console.log('Requesting session key from node...');
+  const CT = Root.lookupEnum('meshtastic.AdminMessage.ConfigType');
+  const req = Types.AdminMessage.create({ getConfigRequest: CT.values.SESSIONKEY_CONFIG });
+  await sendAdminRaw(req);
+  // Wait up to 3s for node to respond
+  for (let i = 0; i < 30; i++) {
+    await sleep(100);
+    if (adminSessionKey) { console.log('Session key received'); return true; }
+  }
+  console.warn('Session key not received — proceeding without it');
+  return false;
+}
+
 async function sendAdmin(adminMsg) {
+  // Include session key if we have one
+  if (adminSessionKey) {
+    adminMsg.sessionPasskey = adminSessionKey;
+  }
+  await sendAdminRaw(adminMsg);
+}
+
+async function sendAdminRaw(adminMsg) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
-  // Send to the node's own nodeNum (not broadcast).
-  // from=0 tells firmware this originates locally (fully authorized, no session key needed).
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
   const packet  = MeshPkt.create({
     to:      nodeNum,
@@ -529,7 +553,7 @@ async function sendAdmin(adminMsg) {
     wantAck: false,
     channel: 0,
   });
-  console.log('sendAdmin to nodeNum:', nodeNum.toString(16), 'adminMsg variant:', Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'));
+  console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey'));
   await writePacket(Types.ToRadio.create({ packet }));
 }
 
@@ -586,6 +610,7 @@ function dispatchFromRadio(msg) {
     case 'deviceMetadata':   handleDeviceMetadata(msg.deviceMetadata);  break;
     case 'configCompleteId': handleConfigComplete();                    break;
     case 'deviceUiConfig':   break;
+    case 'packet':           handleIncomingPacket(msg.packet);              break;
     case 'logRecord':        console.debug('[Node]',msg.logRecord?.message); break;
     default:                 console.debug('FromRadio unhandled:',v);   break;
   }
@@ -610,6 +635,22 @@ function updateOwnNodeDisplay() {
   document.getElementById('info-hw').textContent        = u.hwModel!==undefined?String(u.hwModel):'—';
   document.getElementById('info-role').textContent      = labelFor(ROLE_OPTIONS,u.role);
 }
+// Handle incoming MeshPackets (admin responses, session key etc.)
+function handleIncomingPacket(packet) {
+  if (!packet?.decoded) return;
+  if (packet.decoded.portnum !== 68) return;  // ADMIN_APP only
+  try {
+    const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
+    console.log('Admin response received, keys:', Object.keys(adminResp).filter(k => adminResp[k]));
+    if (adminResp.sessionPasskey && adminResp.sessionPasskey.length > 0) {
+      adminSessionKey = adminResp.sessionPasskey;
+      console.log('Session key obtained:', adminSessionKey.length, 'bytes');
+    }
+  } catch(e) {
+    console.debug('Admin response decode error:', e.message);
+  }
+}
+
 function handleConfig(config) {
   const t=config.payloadVariant;
   // Normalize enum strings to numbers so select fields match correctly
@@ -928,6 +969,10 @@ async function applyToNode() {
 
   let sent=0;
   try {
+    // Obtain session key (required by firmware 2.7+)
+    await ensureSessionKey();
+    await sleep(200);
+
     // Begin transaction
     await sendAdmin(Types.AdminMessage.create({ beginEditSettings: true }));
     await sleep(150);
