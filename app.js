@@ -38,6 +38,10 @@ const RADIO_SECTIONS = {
   device: {
     label:'Device', icon:'⚙️',
     fields: [
+      { key:'_longName',  label:'Node Name (long)',   type:'text',   common:true,
+        desc:'Full name of this node, shown in app node lists. Max ~40 characters. Example: "Hans Portabel-3".' },
+      { key:'_shortName', label:'Node Name (short)',  type:'text',   common:true,
+        desc:'Short 2-4 character identifier shown on screen and in compact lists. Example: "HES3".' },
       { key:'role',                  label:'Role',                   type:'select', optKey:'ROLE_OPTIONS',        common:true,
         desc:'Defines how the node participates in the mesh. CLIENT is correct for almost all nodes — it sends, receives and intelligently rebroadcasts. Only use ROUTER at genuinely strategic high sites with excellent coverage.' },
       { key:'nodeInfoBroadcastSecs', label:'Node Info Interval',     type:'number', unit:'s', min:60,             common:true,
@@ -589,16 +593,42 @@ function updateOwnNodeDisplay() {
 }
 function handleConfig(config) {
   const t=config.payloadVariant;
-  state.config[t]=config[t];
+  // Normalize enum strings to numbers so select fields match correctly
+  state.config[t] = normalizeEnums(config[t]);
   if(t==='lora'&&config.lora)
     document.getElementById('info-region').textContent=labelFor(REGION_OPTIONS,config.lora.region);
-  // Update banner to show progress
   if (!state.configDone) {
     const n = Object.keys(state.config).length + Object.keys(state.moduleConfig).length;
     const banner = document.getElementById('editor-banner');
     if (banner && (banner.classList.contains('editor-banner--info') || banner.textContent.startsWith('Reading')))
       updateEditorBanner(`Reading configuration… (${n} sections received)`);
   }
+}
+
+// Convert any enum string values ("EU_868", "LONG_SLOW" etc.) to their numeric equivalents
+// protobufjs sometimes decodes enums as strings depending on config
+function normalizeEnums(obj) {
+  if (!obj || typeof obj !== 'object') return obj;
+  const result = {};
+  for (const [key, val] of Object.entries(obj)) {
+    if (typeof val === 'string' && Root) {
+      // Try to find a matching enum value across all known enums
+      const num = resolveEnumString(val);
+      result[key] = (num !== null) ? num : val;
+    } else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
+      result[key] = normalizeEnums(val);
+    } else {
+      result[key] = val;
+    }
+  }
+  return result;
+}
+
+function resolveEnumString(str) {
+  // Check all option lists
+  const allOpts = [...ROLE_OPTIONS,...REGION_OPTIONS,...MODEM_OPTIONS,...GPS_OPTIONS,...BT_MODE_OPTIONS,...REBROADCAST_OPTIONS];
+  const match = allOpts.find(o => o.label === str);
+  return match ? match.value : null;
 }
 function handleModuleConfig(mc) { const t=mc.payloadVariant; state.moduleConfig[t]=mc[t]; }
 function handleChannel(ch)      { state.channels[ch.index]=ch; }
@@ -625,6 +655,12 @@ function loadNodeIntoEditor() {
   editorConfig.position._lat = pos?.latitudeI  ? (pos.latitudeI /1e7).toFixed(6) : '';
   editorConfig.position._lon = pos?.longitudeI ? (pos.longitudeI/1e7).toFixed(6) : '';
   editorConfig.position._alt = pos?.altitude ?? '';
+
+  // Pre-fill node name fields from user info
+  if (!editorConfig.device) editorConfig.device = {};
+  const user = state.nodeInfo?.user || {};
+  editorConfig.device._longName  = user.longName  || '';
+  editorConfig.device._shortName = user.shortName || '';
 
   editorMode='node';
   editorSection='device';
@@ -902,6 +938,23 @@ async function applyToNode() {
       });
       await sendAdmin(Types.AdminMessage.create({ setFixedPosition: posMsg }));
       sent++; await sleep(100);
+    }
+
+    // Node name (setOwner — outside transaction)
+    const devCfg = editorConfig.device || {};
+    const newLong  = devCfg._longName?.trim();
+    const newShort = devCfg._shortName?.trim();
+    const curLong  = state.nodeInfo?.user?.longName  || '';
+    const curShort = state.nodeInfo?.user?.shortName || '';
+    if ((newLong && newLong !== curLong) || (newShort && newShort !== curShort)) {
+      const UserType = Root.lookupType('meshtastic.User');
+      const userMsg  = UserType.create({
+        id:        state.nodeInfo?.user?.id || '',
+        longName:  newLong  || curLong,
+        shortName: (newShort || curShort).substring(0, 4),
+      });
+      await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
+      sent++; await sleep(150);
     }
 
     // Commit transaction
