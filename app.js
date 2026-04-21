@@ -452,8 +452,18 @@ async function connect() {
     sectionNodeInfo.classList.remove('hidden');
     sectionEditor.classList.remove('hidden');
     sectionBackup.classList.remove('hidden');
+    updateEditorBanner('Reading configuration from node…');
+    renderEditorTabs();
     await sendWantConfig();
     readLoop().catch(err => { console.warn('Read loop ended:', err.message); if (state.connected) disconnect(); });
+    // Fallback: load editor after 8s even if configCompleteId never arrives
+    setTimeout(() => {
+      if (state.connected && !state.configDone && Object.keys(state.config).length > 0) {
+        console.log('configComplete not received — loading editor with available data');
+        state.configDone = true;
+        loadNodeIntoEditor();
+      }
+    }, 8000);
   } catch(err) {
     console.error('Connection failed:', err);
     setStatus('disconnected');
@@ -582,6 +592,13 @@ function handleConfig(config) {
   state.config[t]=config[t];
   if(t==='lora'&&config.lora)
     document.getElementById('info-region').textContent=labelFor(REGION_OPTIONS,config.lora.region);
+  // Update banner to show progress
+  if (!state.configDone) {
+    const n=Object.keys(state.config).length;
+    const banner=document.getElementById('editor-banner');
+    if(banner&&banner.classList.contains('editor-banner--info')||banner?.textContent.startsWith('Reading'))
+      updateEditorBanner(`Reading configuration… (${n}/8 sections)`);
+  }
 }
 function handleModuleConfig(mc) { const t=mc.payloadVariant; state.moduleConfig[t]=mc[t]; }
 function handleChannel(ch)      { state.channels[ch.index]=ch; }
