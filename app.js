@@ -957,28 +957,34 @@ function updateApplyButtons() {
 // Test function: send a reboot via ToRadio.admin to confirm basic comms work
 async function rebootNode() {
   if (!state.connected) { alert('Not connected.'); return; }
-  if (!confirm('Reboot the connected node now?\n\nTest: pauses reader before writing.')) return;
+  if (!confirm('Run write diagnostics?')) return;
 
-  // PAUSE the reader — some WebSerial implementations block writes while reader is active
-  console.log('Pausing reader before write...');
+  console.log('--- Write diagnostics ---');
+  console.log('state.writer:', !!state.writer);
+  console.log('state.reader:', !!state.reader);
+  console.log('port.writable.locked:', state.port?.writable?.locked);
+  console.log('port.readable.locked:', state.port?.readable?.locked);
+
+  // Test 1: send another wantConfigId (known to work at startup)
+  console.log('Test 1: sending wantConfigId while readLoop active...');
+  const wantCfg = Types.ToRadio.create({ wantConfigId: 0x12345678 });
   try {
-    if (state.reader) {
-      await state.reader.cancel();
-      state.reader.releaseLock();
-      state.reader = null;
-      console.log('Reader paused');
-    }
-  } catch(e) { console.warn('Reader pause error:', e.message); }
+    await writePacket(wantCfg);
+    console.log('Test 1 write: OK');
+  } catch(e) { console.error('Test 1 write FAILED:', e); }
 
-  await sleep(200);
+  await sleep(1000);
 
-  const rebootMsg = Types.AdminMessage.create({ rebootSeconds: 3 });
-  const toRadio = Types.ToRadio.create({ admin: rebootMsg });
-  await writePacket(toRadio);
-  console.log('Reboot command sent');
+  // Test 2: send reboot via ToRadio.admin
+  console.log('Test 2: sending reboot via ToRadio.admin...');
+  const rebootMsg = Types.AdminMessage.create({ rebootSeconds: 5 });
+  const tr = Types.ToRadio.create({ admin: rebootMsg });
+  try {
+    await writePacket(tr);
+    console.log('Test 2 write: OK — watching for reboot response...');
+  } catch(e) { console.error('Test 2 write FAILED:', e); }
 
-  alert('Reboot command sent. If the node reboots, the reader was blocking writes.\n\nYou will need to reconnect after reboot.');
-  await disconnect();
+  alert('Diagnostics complete — check F12 console.');
 }
 
 async function applyToNode() {
