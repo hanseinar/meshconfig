@@ -571,35 +571,61 @@ async function sendWantConfig() {
 // ─── Read loop — sliding window ───────────────────────────────────────────────
 
 async function readLoop() {
-  state.reader = state.port.readable.getReader();
+  // Use TransformStream pipeline so port.readable is NOT locked by getReader().
+  // This keeps port.writable freely available for writing — same as @meshtastic/core.
   let rxBuf=new Uint8Array(8192), rxLen=0;
   const append  = b => { if(rxLen+b.length>rxBuf.length){const n=new Uint8Array(Math.max(rxBuf.length*2,rxLen+b.length+1024));n.set(rxBuf.subarray(0,rxLen));rxBuf=n;} rxBuf.set(b,rxLen); rxLen+=b.length; };
   const consume = n => { rxBuf.copyWithin(0,n); rxLen-=n; };
+
+  function processBuffer() {
+    let progress=true;
+    while (progress) {
+      progress=false;
+      let sp=-1;
+      for(let i=0;i<rxLen-1;i++){if(rxBuf[i]===START1&&rxBuf[i+1]===START2){sp=i;break;}}
+      if(sp<0){if(rxLen>1)consume(rxLen-1);return;}
+      if(sp>0){consume(sp);progress=true;continue;}
+      if(rxLen<4)return;
+      const pLen=(rxBuf[2]<<8)|rxBuf[3];
+      if(pLen===0||pLen>MAX_PACKET){consume(1);progress=true;continue;}
+      if(rxLen<4+pLen)return;
+      const payload=rxBuf.slice(4,4+pLen);
+      let ok=false;
+      try{dispatchFromRadio(Types.FromRadio.decode(payload));ok=true;}
+      catch(e){console.debug('Skip sync:',e.message.substring(0,60));}
+      consume(ok?4+pLen:1); progress=true;
+    }
+  }
+
+  // Create a PassThrough transform that feeds our buffer
+  const transform = new TransformStream({
+    transform(chunk, controller) {
+      append(chunk);
+      processBuffer();
+      controller.enqueue(chunk); // pass through (required by pipeTo)
+    }
+  });
+
+  // pipeTo locks port.readable to the transform writable — NOT to a reader
+  // port.writable remains fully unlocked for writing
+  const pipePromise = state.port.readable.pipeTo(transform.writable).catch(e => {
+    console.debug('Pipe ended:', e?.message);
+  });
+
+  // Drain the transform readable to keep the pipeline flowing
+  state.reader = transform.readable.getReader();
   try {
     while (state.connected) {
-      const {value,done} = await state.reader.read();
+      const {done} = await state.reader.read();
       if (done) break;
-      if (!value?.length) continue;
-      append(value);
-      let progress=true;
-      while (progress) {
-        progress=false;
-        let sp=-1;
-        for(let i=0;i<rxLen-1;i++){if(rxBuf[i]===START1&&rxBuf[i+1]===START2){sp=i;break;}}
-        if(sp<0){if(rxLen>1)consume(rxLen-1);break;}
-        if(sp>0){consume(sp);progress=true;continue;}
-        if(rxLen<4)break;
-        const pLen=(rxBuf[2]<<8)|rxBuf[3];
-        if(pLen===0||pLen>MAX_PACKET){consume(1);progress=true;continue;}
-        if(rxLen<4+pLen)break;
-        const payload=rxBuf.slice(4,4+pLen);
-        let ok=false;
-        try{dispatchFromRadio(Types.FromRadio.decode(payload));ok=true;}
-        catch(e){console.debug('Skip sync:',e.message.substring(0,60));}
-        consume(ok?4+pLen:1); progress=true;
-      }
     }
-  } finally { try{state.reader.releaseLock();}catch(_){} state.reader=null; }
+  } finally {
+    try { state.reader.releaseLock(); } catch(_) {}
+    state.reader = null;
+    // Cancel the pipe
+    try { state.port?.readable?.cancel(); } catch(_) {}
+    await pipePromise;
+  }
 }
 
 // ─── FromRadio dispatch ───────────────────────────────────────────────────────
