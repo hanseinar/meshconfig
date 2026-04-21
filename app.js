@@ -522,7 +522,7 @@ async function ensureSessionKey() {
   console.log('Requesting session key from node...');
   const CT = Root.lookupEnum('meshtastic.AdminMessage.ConfigType');
   const req = Types.AdminMessage.create({ getConfigRequest: CT.values.SESSIONKEY_CONFIG });
-  await sendAdminRaw(req);
+  await sendAdminRaw(req, true);
   // Wait up to 3s for node to respond
   for (let i = 0; i < 30; i++) {
     await sleep(100);
@@ -540,7 +540,7 @@ async function sendAdmin(adminMsg) {
   await sendAdminRaw(adminMsg);
 }
 
-async function sendAdminRaw(adminMsg) {
+async function sendAdminRaw(adminMsg, wantResponse=false) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
@@ -548,7 +548,7 @@ async function sendAdminRaw(adminMsg) {
   const packet  = MeshPkt.create({
     to:      nodeNum,
     from:    0,
-    decoded: Data.create({ portnum: 68, payload: adminBytes }),
+    decoded: Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
     id:      (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
     wantAck: false,
     channel: 0,
@@ -638,7 +638,7 @@ function updateOwnNodeDisplay() {
 // Handle incoming MeshPackets (admin responses, session key etc.)
 function handleIncomingPacket(packet) {
   if (!packet?.decoded) return;
-  if (packet.decoded.portnum !== 68) return;  // ADMIN_APP only
+  if (packet.decoded.portnum !== 6) return;   // ADMIN_APP = 6
   try {
     const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
     console.log('Admin response received, keys:', Object.keys(adminResp).filter(k => adminResp[k]));
