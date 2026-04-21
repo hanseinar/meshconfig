@@ -957,13 +957,28 @@ function updateApplyButtons() {
 // Test function: send a reboot via ToRadio.admin to confirm basic comms work
 async function rebootNode() {
   if (!state.connected) { alert('Not connected.'); return; }
-  if (!confirm('Reboot the connected node now?')) return;
-  // Use ToRadio.admin (field 4) - direct local path
+  if (!confirm('Reboot the connected node now?\n\nTest: pauses reader before writing.')) return;
+
+  // PAUSE the reader — some WebSerial implementations block writes while reader is active
+  console.log('Pausing reader before write...');
+  try {
+    if (state.reader) {
+      await state.reader.cancel();
+      state.reader.releaseLock();
+      state.reader = null;
+      console.log('Reader paused');
+    }
+  } catch(e) { console.warn('Reader pause error:', e.message); }
+
+  await sleep(200);
+
   const rebootMsg = Types.AdminMessage.create({ rebootSeconds: 3 });
   const toRadio = Types.ToRadio.create({ admin: rebootMsg });
   await writePacket(toRadio);
-  console.log('Reboot command sent via ToRadio.admin');
-  alert('Reboot command sent. Node should reboot in 3 seconds.');
+  console.log('Reboot command sent');
+
+  alert('Reboot command sent. If the node reboots, the reader was blocking writes.\n\nYou will need to reconnect after reboot.');
+  await disconnect();
 }
 
 async function applyToNode() {
