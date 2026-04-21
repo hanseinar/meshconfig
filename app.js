@@ -516,14 +516,20 @@ async function writePacket(msg) {
 // NOT via ToRadio.admin (field 4) which is ignored in firmware 2.7+
 async function sendAdmin(adminMsg) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
-  const Data = Root.lookupType('meshtastic.Data');
-  const packet = Root.lookupType('meshtastic.MeshPacket').create({
-    to:      0xffffffff,
+  const Data    = Root.lookupType('meshtastic.Data');
+  const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
+  // Send to the node's own nodeNum (not broadcast).
+  // from=0 tells firmware this originates locally (fully authorized, no session key needed).
+  const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
+  const packet  = MeshPkt.create({
+    to:      nodeNum,
+    from:    0,
     decoded: Data.create({ portnum: 68, payload: adminBytes }),
-    id:      Math.floor(Math.random() * 0xffffffff),
+    id:      (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
     wantAck: false,
     channel: 0,
   });
+  console.log('sendAdmin to nodeNum:', nodeNum.toString(16), 'adminMsg variant:', Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'));
   await writePacket(Types.ToRadio.create({ packet }));
 }
 
