@@ -552,13 +552,14 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
-  // Match official @meshtastic/js sendPacket: wantAck=true, wantResponse=true
+  // from=0 signals "local device" — firmware bypasses PKI auth for local access
+  // (AdminModule.cpp: "from==0 bypasses authorization unless is_managed=true")
   const packet  = MeshPkt.create({
     to:      nodeNum,
-    from:    nodeNum,
+    from:    0,          // LOCAL ACCESS: from=0 bypasses PKI requirement
     decoded: Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
     id:      (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
-    wantAck: true,    // official client default: true
+    wantAck: true,
     channel: 0,
   });
   console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey'));
