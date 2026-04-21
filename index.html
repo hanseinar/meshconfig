@@ -8,140 +8,123 @@
 </head>
 <body>
 
-  <header>
-    <h1>MeshConfig</h1>
-    <p class="subtitle">Meshtastic Node Configurator</p>
-  </header>
+<header>
+  <h1>MeshConfig</h1>
+  <p class="subtitle">Meshtastic Node Configurator</p>
+</header>
 
-  <main>
+<main>
 
-    <!-- ── Connection ──────────────────────────────────────────────────────── -->
-    <section id="section-connect">
-      <h2>Connection</h2>
-      <button id="btn-connect">Connect via USB</button>
-      <div id="connection-status" class="status status--disconnected">Disconnected</div>
-      <div id="proto-status"      class="status status--disconnected" style="margin-left:0.5rem;">Proto: not loaded</div>
-    </section>
+  <!-- ── Connection ──────────────────────────────────────────────────────── -->
+  <section id="section-connect">
+    <h2>Connection</h2>
+    <button id="btn-connect">Connect via USB</button>
+    <div id="connection-status" class="status status--disconnected">Disconnected</div>
+    <div id="proto-status" class="status status--disconnected" style="margin-left:0.5rem;">Proto: not loaded</div>
+  </section>
 
-    <!-- ── Node Info ────────────────────────────────────────────────────────── -->
-    <section id="section-nodeinfo" class="hidden">
-      <h2>Node Info</h2>
-      <table id="node-info-table">
-        <tr><td>Name</td>      <td id="info-name">—</td></tr>
-        <tr><td>Short name</td><td id="info-shortname">—</td></tr>
-        <tr><td>Hardware</td>  <td id="info-hw">—</td></tr>
-        <tr><td>Firmware</td>  <td id="info-fw">—</td></tr>
-        <tr><td>Node ID</td>   <td id="info-id">—</td></tr>
-        <tr><td>Role</td>      <td id="info-role">—</td></tr>
-        <tr><td>Region</td>    <td id="info-region">—</td></tr>
-      </table>
-    </section>
+  <!-- ── Node Info ────────────────────────────────────────────────────────── -->
+  <section id="section-nodeinfo" class="hidden">
+    <h2>Node Info</h2>
+    <table id="node-info-table">
+      <tr><td>Name</td>       <td id="info-name">—</td></tr>
+      <tr><td>Short name</td> <td id="info-shortname">—</td></tr>
+      <tr><td>Hardware</td>   <td id="info-hw">—</td></tr>
+      <tr><td>Firmware</td>   <td id="info-fw">—</td></tr>
+      <tr><td>Node ID</td>    <td id="info-id">—</td></tr>
+      <tr><td>Role</td>       <td id="info-role">—</td></tr>
+      <tr><td>Region</td>     <td id="info-region">—</td></tr>
+    </table>
+  </section>
 
-    <!-- ── Config Editor ────────────────────────────────────────────────────── -->
-    <section id="section-editor" class="hidden">
-      <h2>Configuration Editor</h2>
+  <!-- ── Config Editor ────────────────────────────────────────────────────── -->
+  <section id="section-editor" class="hidden">
+    <h2>Configuration Editor</h2>
 
-      <!-- Step 1: Network -->
-      <div class="step-header">
-        <span class="step-num">1</span>
-        <span class="step-label">Select network</span>
-        <span class="step-hint">Defines LoRa parameters — must match all nodes in your mesh</span>
+    <div id="editor-banner" class="editor-banner editor-banner--info">Connect a node to edit its configuration.</div>
+
+    <!-- Template name/desc row (visible only when editing a template) -->
+    <div id="tpl-name-row" class="tpl-name-row hidden">
+      <div class="tpl-name-fields">
+        <input id="tpl-edit-name" type="text" placeholder="Template name (required)" class="tpl-name-input" />
+        <input id="tpl-edit-desc" type="text" placeholder="Short description (optional)" class="tpl-desc-input" />
       </div>
-      <div id="network-cards">
-        <div class="net-card" data-net="standard" onclick="selectNetwork('standard')">
-          <div class="card-icon">🌍</div>
-          <div class="card-body">
-            <div class="card-label">Meshtastic Standard</div>
-            <div class="card-desc">LongFast preset · EU_868 · Compatible with factory-default devices</div>
-          </div>
-        </div>
-        <div class="net-card" data-net="vestlandsnett" onclick="selectNetwork('vestlandsnett')">
-          <div class="card-icon">⛰️</div>
-          <div class="card-body">
-            <div class="card-label">Vestlandsnett <span class="card-badge">example</span></div>
-            <div class="card-desc">62 kHz BW · SF8 · CR5 · 869.618 MHz · Longer range, lower throughput</div>
-          </div>
-        </div>
-      </div>
+    </div>
 
-      <!-- Step 2: Function -->
-      <div id="function-row" class="hidden">
-        <div class="step-header">
-          <span class="step-num">2</span>
-          <span class="step-label">Select function</span>
-          <span class="step-hint">Defines role and behaviour — can be adjusted field by field below</span>
-        </div>
-        <div id="function-cards">
-          <div class="fn-card" data-fn="client" onclick="selectFunction('client')">
-            <div class="card-icon">🎒</div>
-            <div class="card-body">
-              <div class="card-label">Client</div>
-              <div class="card-desc">General purpose · Role: CLIENT · Participates in mesh routing</div>
-            </div>
-          </div>
-          <div class="fn-card" data-fn="fixed" onclick="selectFunction('fixed')">
-            <div class="card-icon">🏠</div>
-            <div class="card-body">
-              <div class="card-label">Fixed Install</div>
-              <div class="card-desc">Permanent mount · Role: CLIENT · Power saving · Fixed position</div>
-            </div>
-          </div>
-          <div class="fn-card fn-card--warn" data-fn="repeater" onclick="selectFunction('repeater')">
-            <div class="card-icon">📡</div>
-            <div class="card-body">
-              <div class="card-label">Repeater <span class="card-badge card-badge--warn">⚠️ advanced</span></div>
-              <div class="card-desc">Always awake · Role: ROUTER · High sites only — read warning</div>
-            </div>
-          </div>
-        </div>
+    <!-- Load template overlay bar (visible when connected and in node mode) -->
+    <div id="load-template-bar" class="load-tpl-bar hidden">
+      <span class="load-tpl-label">Load template:</span>
+      <select id="tpl-load-select" disabled>
+        <option value="">— no templates —</option>
+      </select>
+      <button onclick="loadTemplateOntoNode()">Load onto editor</button>
+    </div>
 
-        <!-- Warning box (shown for repeater) -->
-        <div id="fn-warning" class="warning-box hidden"></div>
-      </div>
+    <!-- Tabs -->
+    <div id="editor-tabs"></div>
+    <div id="editor-panel" class="panel"></div>
 
-      <!-- Step 3: Fine-tune -->
-      <div id="editor-form" class="hidden">
-        <div class="step-header">
-          <span class="step-num">3</span>
-          <span class="step-label">Fine-tune</span>
-          <span class="step-hint">Adjust individual fields — hover <strong>?</strong> for help on any field</span>
-        </div>
-        <div id="editor-tabs"></div>
-        <div id="editor-panel" class="panel"></div>
-        <div class="editor-actions">
-          <button id="btn-apply-config" onclick="applyEditorConfig()">▶ Apply all sections to Node</button>
-        </div>
-      </div>
-    </section>
+    <!-- Action buttons -->
+    <div class="editor-actions">
+      <button id="btn-apply-node"    onclick="applyToNode()"    style="display:none">▶ Apply all to Node</button>
+      <button id="btn-save-template" onclick="saveTemplate()"   style="display:none" class="btn-template">💾 Save template</button>
+      <button id="btn-cancel-tpl"    onclick="cancelTemplateEdit()" style="display:none" class="btn-secondary">Cancel</button>
+    </div>
+  </section>
 
-    <!-- ── Backup & Restore ─────────────────────────────────────────────────── -->
-    <section id="section-backup" class="hidden">
-      <h2>Backup &amp; Restore</h2>
-      <button id="btn-backup">Export config to YAML</button>
-      <p class="hint" style="margin-top:0.5rem;">Exports all sections — use this to inspect or archive the full node configuration.</p>
-      <hr />
-      <label for="input-restore">Import config from YAML:</label>
-      <input type="file" id="input-restore" accept=".yaml,.yml" />
-      <button id="btn-restore">Apply to node</button>
-    </section>
+  <!-- ── Templates ────────────────────────────────────────────────────────── -->
+  <section id="section-templates">
+    <h2>Template Library</h2>
+    <p class="hint">Templates store a complete node configuration. Create them from scratch or from a connected node, then load them onto any node.</p>
 
-    <!-- Raw config section removed — use Export YAML to inspect full config -->
+    <div id="tpl-list"><p class="tpl-empty">No templates saved yet.</p></div>
 
-  </main>
+    <div class="tpl-actions">
+      <button onclick="newTemplate()">＋ New template</button>
+      <button onclick="newTemplateFromNode()" id="btn-tpl-from-node">📥 New from connected node</button>
+      <button onclick="importTemplate()" class="btn-secondary">📂 Import YAML</button>
+    </div>
+  </section>
 
-  <footer>
-    <p>
-      MeshConfig &mdash; developed by <strong>Hans Einar Steinsland</strong> (<a href="https://www.qrz.com/db/LA8DKA" target="_blank">LA8DKA</a>)
-      &mdash; <a href="https://github.com/hanseinar/meshconfig" target="_blank">GitHub</a>
-      &mdash; <a href="https://meshtastic.org" target="_blank">meshtastic.org</a>
-    </p>
-    <p class="footer-sub">
-      Not an official Meshtastic project &mdash; MIT License &mdash; WebSerial requires Chrome or Edge
-    </p>
-  </footer>
+  <!-- ── Backup & Restore ─────────────────────────────────────────────────── -->
+  <section id="section-backup" class="hidden">
+    <h2>Backup &amp; Restore</h2>
+    <button id="btn-backup">Export config to YAML</button>
+    <p class="hint" style="margin-top:0.4rem;">Exports full node configuration — use this to inspect, archive, or migrate to another node of the same type.</p>
+    <hr />
+    <label for="input-restore">Restore from YAML backup:</label>
+    <input type="file" id="input-restore" accept=".yaml,.yml" />
+    <button id="btn-restore">Apply to node</button>
+  </section>
 
-  <script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
-  <script src="app.js"></script>
+</main>
+
+<footer>
+  <p>MeshConfig &mdash; developed by <strong>Hans Einar Steinsland</strong>
+    (<a href="https://www.qrz.com/db/LA8DKA" target="_blank">LA8DKA</a>)
+    &mdash; <a href="https://github.com/hanseinar/meshconfig" target="_blank">GitHub</a>
+    &mdash; <a href="https://meshtastic.org" target="_blank">meshtastic.org</a>
+  </p>
+  <p class="footer-sub">Not an official Meshtastic project &mdash; MIT License &mdash; WebSerial requires Chrome or Edge</p>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/protobufjs@7.4.0/dist/light/protobuf.min.js"></script>
+<script src="app.js"></script>
+<script>
+// Show/hide template name row and load bar based on editor mode
+const _tabObs = new MutationObserver(() => {
+  const banner = document.getElementById('editor-banner');
+  if (!banner) return;
+  const isTpl = banner.classList.contains('editor-banner--template');
+  document.getElementById('tpl-name-row').classList.toggle('hidden', !isTpl);
+  document.getElementById('btn-cancel-tpl').style.display = isTpl ? '' : 'none';
+
+  const isNode = banner.classList.contains('editor-banner--node') || banner.classList.contains('editor-banner--ok');
+  const loadBar = document.getElementById('load-template-bar');
+  if (loadBar) loadBar.classList.toggle('hidden', !isNode);
+});
+_tabObs.observe(document.getElementById('editor-banner')||document.body, {attributes:true, attributeFilter:['class']});
+</script>
 
 </body>
 </html>
