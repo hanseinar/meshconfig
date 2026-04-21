@@ -450,7 +450,7 @@ async function connect() {
   try {
     state.port = await navigator.serial.requestPort();
     await state.port.open({ baudRate: BAUD_RATE });
-    state.writer = state.port.writable.getWriter();
+    // Writer acquired/released per-packet (Chrome WebSerial requirement)
     state.connected = true;
     setStatus('connected');
     btnConnect.textContent = 'Disconnect';
@@ -481,9 +481,9 @@ async function connect() {
 async function disconnect() {
   state.connected = false;
   try { if (state.reader) await state.reader.cancel(); } catch(_) {}
-  try { if (state.writer) await state.writer.close(); } catch(_) {}
+  // No persistent writer lock to release
   try { if (state.port)   await state.port.close();   } catch(_) {}
-  state.reader = state.writer = state.port = null;
+  state.reader = null; state.port = null;
   state.myInfo = state.nodeInfo = state.metadata = null;
   state.config = {}; state.moduleConfig = {}; state.channels = [];
   state.nodeInfos = {}; state.configDone = false;
@@ -502,7 +502,7 @@ async function disconnect() {
 // ─── Serial write ─────────────────────────────────────────────────────────────
 
 async function writePacket(msg) {
-  if (!state.writer) { console.error('writePacket: no writer!'); return; }
+  if (!state.port?.writable) { console.error('writePacket: no writable port'); return; }
   const payload = Types.ToRadio.encode(msg).finish();
   console.log('writePacket:', payload.length, 'bytes, payload[0..3]:', Array.from(payload.slice(0,4)).map(b=>b.toString(16)).join(' '));
   if (payload.length > MAX_PACKET) { console.error('Packet too large'); return; }
@@ -510,7 +510,14 @@ async function writePacket(msg) {
   frame[0]=START1; frame[1]=START2;
   frame[2]=(payload.length>>8)&0xff; frame[3]=payload.length&0xff;
   frame.set(payload, 4);
-  await state.writer.write(frame);
+  // Acquire, write, release — matches official @meshtastic/core pattern
+  const writer = state.port.writable.getWriter();
+  try {
+    await new Promise(r => setTimeout(r, 50));
+    await writer.write(frame);
+  } finally {
+    writer.releaseLock();
+  }
 }
 
 // ADMIN_APP portnum = 68
@@ -960,7 +967,7 @@ async function rebootNode() {
   if (!confirm('Run write diagnostics?')) return;
 
   console.log('--- Write diagnostics ---');
-  console.log('state.writer:', !!state.writer);
+  console.log('port.writable:', !!state.port?.writable);
   console.log('state.reader:', !!state.reader);
   console.log('port.writable.locked:', state.port?.writable?.locked);
   console.log('port.readable.locked:', state.port?.readable?.locked);
@@ -988,10 +995,10 @@ async function rebootNode() {
 }
 
 async function applyToNode() {
-  console.log('applyToNode called. connected:', state.connected, 'configDone:', state.configDone, 'writer:', !!state.writer);
+  console.log('applyToNode called. connected:', state.connected, 'configDone:', state.configDone);
   if (!state.connected)   { alert('Not connected to a node.'); return; }
   if (!state.configDone)  { alert('Node config not fully loaded yet.'); return; }
-  if (!state.writer)      { alert('Serial writer not available. Try disconnecting and reconnecting.'); return; }
+  if (!state.port?.writable) { alert('Serial port not writable. Try disconnecting and reconnecting.'); return; }
   saveCurrentPanel();
 
   const changes = [];
