@@ -547,17 +547,18 @@ async function sendAdmin(adminMsg) {
   await sendAdminRaw(adminMsg);
 }
 
-async function sendAdminRaw(adminMsg, wantResponse=false) {
+async function sendAdminRaw(adminMsg, wantResponse=true) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
+  // Match official @meshtastic/js sendPacket: wantAck=true, wantResponse=true
   const packet  = MeshPkt.create({
     to:      nodeNum,
-    from:    nodeNum,    // must match myNodeNum — firmware uses this for local auth
+    from:    nodeNum,
     decoded: Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
     id:      (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
-    wantAck: false,
+    wantAck: true,    // official client default: true
     channel: 0,
   });
   console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey'));
