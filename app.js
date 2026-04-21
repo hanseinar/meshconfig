@@ -625,6 +625,7 @@ function loadTemplateIntoEditor(id) {
   editorSection  = 'device';
   document.getElementById('tpl-edit-name').value = t.name;
   document.getElementById('tpl-edit-desc').value = t.desc||'';
+  sectionEditor.classList.remove('hidden');
   updateEditorBanner();
   renderEditor();
   sectionEditor.scrollIntoView({behavior:'smooth'});
@@ -946,6 +947,7 @@ function newTemplate() {
   editorSection = 'device';
   document.getElementById('tpl-edit-name').value='';
   document.getElementById('tpl-edit-desc').value='';
+  sectionEditor.classList.remove('hidden');
   updateEditorBanner();
   renderEditor();
   sectionEditor.scrollIntoView({behavior:'smooth'});
@@ -981,7 +983,7 @@ function saveTemplate() {
 
 function cancelTemplateEdit() {
   if(state.connected&&state.configDone){ editorMode='node'; loadNodeIntoEditor(); }
-  else { editorMode='node'; updateEditorBanner(); }
+  else { editorMode='node'; sectionEditor.classList.add('hidden'); updateEditorBanner(); }
 }
 
 function exportTemplate(id) {
