@@ -594,10 +594,10 @@ function handleConfig(config) {
     document.getElementById('info-region').textContent=labelFor(REGION_OPTIONS,config.lora.region);
   // Update banner to show progress
   if (!state.configDone) {
-    const n=Object.keys(state.config).length;
-    const banner=document.getElementById('editor-banner');
-    if(banner&&banner.classList.contains('editor-banner--info')||banner?.textContent.startsWith('Reading'))
-      updateEditorBanner(`Reading configuration… (${n}/8 sections)`);
+    const n = Object.keys(state.config).length + Object.keys(state.moduleConfig).length;
+    const banner = document.getElementById('editor-banner');
+    if (banner && (banner.classList.contains('editor-banner--info') || banner.textContent.startsWith('Reading')))
+      updateEditorBanner(`Reading configuration… (${n} sections received)`);
   }
 }
 function handleModuleConfig(mc) { const t=mc.payloadVariant; state.moduleConfig[t]=mc[t]; }
