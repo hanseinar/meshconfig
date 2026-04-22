@@ -1115,6 +1115,16 @@ async function rebootNode() {
 
   await sleep(2000);
 
+  // Test 4: PKI-encrypted reboot via sendAdmin() — the new PKI path
+  console.log('Test 4: PKI-encrypted reboot via sendAdmin()...');
+  try {
+    const rebootPki = Types.AdminMessage.create({ rebootSeconds: 5 });
+    await sendAdmin(rebootPki);
+    console.log('Test 4: PKI send OK — watching for reboot...');
+  } catch(e) { console.error('Test 4 FAILED:', e.message); }
+
+  await sleep(3000);
+
   // Test 3: raw framed bytes — bypasses our encoder entirely
   // 22=ToRadio.field4, 03=3bytes, 88 06=AdminMsg.field97(varint), 05=5sec
   console.log('Test 3: raw framed bytes...');
