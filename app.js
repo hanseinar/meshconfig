@@ -647,17 +647,19 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
     ourPubKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
   } catch(e) { console.warn('Could not generate X25519 keypair:', e.message); }
 
+  // Exact Python CLI match:
+  // - from is NOT set (stays 0 = local device)
+  // - publicKey is NOT set (empty = no admin key requirement)
+  // - pki_encrypted = true (tells firmware this is a PKI admin intent)
   const packet = MeshPkt.create({
     to:           nodeNum,
-    from:         nodeNum,
     decoded:      Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
     pkiEncrypted: true,
-    publicKey:    ourPubKeyBytes,
     id:           packetId,
     wantAck:      true,
     channel:      0,
   });
-  console.log('sendAdmin: decoded payload + pki_encrypted=true (Python CLI method)');
+  console.log('sendAdmin: decoded+pki_encrypted (no from, no publicKey — Python CLI exact match)');
   await writePacket(Types.ToRadio.create({ packet }));
 }
 
