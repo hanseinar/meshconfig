@@ -549,6 +549,7 @@ async function sendAdmin(adminMsg) {
 
 async function sendAdminRaw(adminMsg, wantResponse=true) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
+  console.log('adminBytes hex:', Array.from(adminBytes).map(b=>b.toString(16).padStart(2,'0')).join(' '));
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
