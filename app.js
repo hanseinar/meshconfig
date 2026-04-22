@@ -556,15 +556,15 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
   const hopLim  = state.config.lora?.hopLimit || 3;
   const variant = Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey');
   console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', variant);
-  // Match Python CLI exactly: pki_encrypted=true, hopLimit from config
+  // NO pki_encrypted — local serial auth bypass (from=0 unset)
+  // Matches Test 4a that confirmed reboot works
   const packet = MeshPkt.create({
-    to:           nodeNum,
-    decoded:      Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
-    id:           (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
-    wantAck:      true,
-    hopLimit:     hopLim,
-    pkiEncrypted: true,
-    channel:      0,
+    to:       nodeNum,
+    decoded:  Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
+    id:       (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
+    wantAck:  true,
+    hopLimit: hopLim,
+    channel:  0,
   });
   await writePacket(Types.ToRadio.create({ packet }));
 }
@@ -993,6 +993,22 @@ function updateApplyButtons() {
 // ─── Apply to node (with transaction) ────────────────────────────────────────
 
 // Test function: send a reboot via ToRadio.admin to confirm basic comms work
+
+async function testSetOwner() {
+  if (!state.connected || !state.myInfo) { alert('Not connected'); return; }
+  const name = prompt('New longName to test:', 'TestName123');
+  if (!name) return;
+  const UserType = Root.lookupType('meshtastic.User');
+  const userMsg  = UserType.create({
+    id:        state.nodeInfo?.user?.id || '',
+    longName:  name.trim(),
+    shortName: (state.nodeInfo?.user?.shortName || 'TEST').substring(0,4),
+  });
+  console.log('testSetOwner: sending setOwner, id=', state.nodeInfo?.user?.id, 'longName=', name.trim());
+  await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
+  console.log('testSetOwner: sent. Watch for FromRadio:packet response.');
+}
+
 async function rebootNode() {
   if (!state.connected) { alert('Not connected.'); return; }
   if (!confirm('Reboot connected node?')) return;
@@ -1016,10 +1032,6 @@ async function applyToNode() {
 
   let sent=0;
   try {
-    // Obtain session key (required by firmware 2.7+)
-    await ensureSessionKey();
-    await sleep(200);
-
     // Node name (setOwner) — sent directly, not inside transaction (matches Python CLI)
     const devCfg = editorConfig.device || {};
     const newLong  = devCfg._longName?.trim();
