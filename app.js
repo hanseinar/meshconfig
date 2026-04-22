@@ -556,13 +556,15 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
   const hopLim  = state.config.lora?.hopLimit || 3;
   const variant = Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey');
   console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', variant);
+  // Match Python CLI exactly: pki_encrypted=true, hopLimit from config
   const packet = MeshPkt.create({
-    to:       nodeNum,
-    decoded:  Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
-    id:       (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
-    wantAck:  true,
-    hopLimit: hopLim,
-    channel:  0,
+    to:           nodeNum,
+    decoded:      Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
+    id:           (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
+    wantAck:      true,
+    hopLimit:     hopLim,
+    pkiEncrypted: true,
+    channel:      0,
   });
   await writePacket(Types.ToRadio.create({ packet }));
 }
@@ -1018,6 +1020,23 @@ async function applyToNode() {
     await ensureSessionKey();
     await sleep(200);
 
+    // Node name (setOwner) — sent directly, not inside transaction (matches Python CLI)
+    const devCfg = editorConfig.device || {};
+    const newLong  = devCfg._longName?.trim();
+    const newShort = devCfg._shortName?.trim();
+    const curLong  = state.nodeInfo?.user?.longName  || '';
+    const curShort = state.nodeInfo?.user?.shortName || '';
+    if ((newLong && newLong !== curLong) || (newShort && newShort !== curShort)) {
+      const UserType = Root.lookupType('meshtastic.User');
+      const userMsg  = UserType.create({
+        id:        state.nodeInfo?.user?.id || '',
+        longName:  newLong  || curLong,
+        shortName: (newShort || curShort).substring(0, 4),
+      });
+      await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
+      sent++; await sleep(300);
+    }
+
     // Begin transaction
     await sendAdmin(Types.AdminMessage.create({ beginEditSettings: true }));
     await sleep(150);
@@ -1049,23 +1068,6 @@ async function applyToNode() {
       });
       await sendAdmin(Types.AdminMessage.create({ setFixedPosition: posMsg }));
       sent++; await sleep(100);
-    }
-
-    // Node name (setOwner — outside transaction)
-    const devCfg = editorConfig.device || {};
-    const newLong  = devCfg._longName?.trim();
-    const newShort = devCfg._shortName?.trim();
-    const curLong  = state.nodeInfo?.user?.longName  || '';
-    const curShort = state.nodeInfo?.user?.shortName || '';
-    if ((newLong && newLong !== curLong) || (newShort && newShort !== curShort)) {
-      const UserType = Root.lookupType('meshtastic.User');
-      const userMsg  = UserType.create({
-        id:        state.nodeInfo?.user?.id || '',
-        longName:  newLong  || curLong,
-        shortName: (newShort || curShort).substring(0, 4),
-      });
-      await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
-      sent++; await sleep(150);
     }
 
     // Commit transaction
