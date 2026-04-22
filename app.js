@@ -675,8 +675,12 @@ function updateOwnNodeDisplay() {
 // Handle incoming MeshPackets (admin responses, session key etc.)
 function handleIncomingPacket(packet) {
   if (!packet?.decoded) return;
-  // Accept ADMIN_APP on both portnum=6 (our proto.json mapping) and portnum=68 (firmware standard)
+  console.log('handleIncomingPacket portnum:', packet.decoded.portnum, 'payload bytes:', packet.decoded.payload?.length);
   if (packet.decoded.portnum !== 6 && packet.decoded.portnum !== 68) return;
+  try {
+    const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
+    console.log('Admin response decoded:', JSON.stringify(adminResp));
+    if (adminResp.sessionPasskey && adminResp.sessionPasskey.length > 0) {
   try {
     const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
     console.log('Admin response received, keys:', Object.keys(adminResp).filter(k => adminResp[k]));
