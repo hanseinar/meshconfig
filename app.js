@@ -629,7 +629,10 @@ async function pkiEncrypt(plaintext, packetId) {
 }
 
 async function sendAdminRaw(adminMsg, wantResponse=true) {
+  // Python CLI sends admin as MeshPacket with decoded payload + pki_encrypted=true FLAG
+  // No actual AES encryption — firmware handles local serial without decryption
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
+  const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
   const packetId = (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0;
@@ -637,28 +640,24 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
   const variant = Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey');
   console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', variant);
 
-  let packet;
+  // Get our ephemeral public key for the public_key field
+  let ourPubKeyBytes = new Uint8Array(32);
   try {
-    // Attempt PKI encryption (required for firmware 2.5+)
-    const { ciphertext, ourPubKeyBytes } = await pkiEncrypt(adminBytes, packetId);
-    packet = MeshPkt.create({
-      to:           nodeNum,
-      from:         nodeNum,
-      encrypted:    ciphertext,
-      pkiEncrypted: true,
-      publicKey:    ourPubKeyBytes,
-      id:           packetId,
-      wantAck:      true,
-      channel:      0,
-    });
-    console.log('sendAdmin: PKI encrypted');
-  } catch(pkiErr) {
-    console.warn('PKI failed, falling back to plaintext:', pkiErr.message);
-    // Fallback: send unencrypted via ToRadio.admin
-    await writePacket(Types.ToRadio.create({ admin: adminMsg }));
-    return;
-  }
+    const kp = await crypto.subtle.generateKey({ name: 'X25519' }, true, ['deriveBits']);
+    ourPubKeyBytes = new Uint8Array(await crypto.subtle.exportKey('raw', kp.publicKey));
+  } catch(e) { console.warn('Could not generate X25519 keypair:', e.message); }
 
+  const packet = MeshPkt.create({
+    to:           nodeNum,
+    from:         nodeNum,
+    decoded:      Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
+    pkiEncrypted: true,
+    publicKey:    ourPubKeyBytes,
+    id:           packetId,
+    wantAck:      true,
+    channel:      0,
+  });
+  console.log('sendAdmin: decoded payload + pki_encrypted=true (Python CLI method)');
   await writePacket(Types.ToRadio.create({ packet }));
 }
 
