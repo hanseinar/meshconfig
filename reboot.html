@@ -1,82 +1,47 @@
 <!DOCTYPE html>
-<html lang="no">
-<head>
-    <meta charset="UTF-8">
-    <title>Meshtastic Secure Admin</title>
-    <style>
-        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #121212; color: white; }
-        .card { background: #1e1e1e; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); text-align: center; max-width: 400px; }
-        button { padding: 15px 30px; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 8px; background: #007bff; color: white; font-weight: bold; width: 100%; }
-        button:hover { background: #0056b3; }
-        button:disabled { background: #444; color: #888; }
-        #log { margin-top: 20px; font-family: monospace; font-size: 0.75rem; color: #aaa; text-align: left; background: #000; padding: 15px; border-radius: 5px; height: 150px; overflow-y: auto; border: 1px solid #333; }
-        .success { color: #4caf50; }
-    </style>
-</head>
+<html>
 <body>
+    <h2>Meshtastic 2.7.x Web Fix</h2>
+    <button id="btn">Koble til & Reboot</button>
+    <div id="status">Klar...</div>
 
-    <div class="card">
-        <h2>Secure Reboot</h2>
-        <p style="color: #888; font-size: 0.9rem;">Bruker @meshtastic/js for PKI-kryptering mot v2.7.x</p>
-        <button id="btn">KOBLE TIL & REBOOT</button>
-        <div id="log">Status: Klar...</div>
-    </div>
-
-    <!-- Vi importerer Meshtastic biblioteket som en ES Module -->
-    <script type="module">
-        import { BleConnection, SerialConnection, MeshDevice } from 'https://esm.sh';
-
-        const btn = document.getElementById('btn');
-        const logDiv = document.getElementById('log');
-
-        function logger(msg, isSuccess = false) {
-            const span = document.createElement('div');
-            if (isSuccess) span.className = 'success';
-            span.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
-            logDiv.prepend(span);
+    <script>
+        // Denne funksjonen lager Meshtastic Serial Framing (94 c3 + len)
+        function frame(payload) {
+            const res = new Uint8Array(4 + payload.length);
+            res[0] = 0x94; res[1] = 0xc3;
+            res[2] = (payload.length >> 8) & 0xff;
+            res[3] = payload.length & 0xff;
+            res.set(payload, 4);
+            return res;
         }
 
-        btn.onclick = async () => {
-            btn.disabled = true;
-            logger("Ber om serieport...");
-
+        document.getElementById('btn').onclick = async () => {
             try {
-                // 1. Opprett tilkobling (SerialConnection håndterer WebSerial)
-                const connection = new SerialConnection();
-                const device = new MeshDevice(connection);
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+                
+                const writer = port.writable.getWriter();
+                const status = document.getElementById('status');
 
-                // 2. Start tilkoblingen
-                // Dette trigger WebSerial-dialogen
-                await connection.connect();
-                logger("Port åpen. Starter PKI-håndtrykk...");
+                // STEG 1: Send "Want Config" for å initiere sesjonen (ToRadio felt 3)
+                // Dette får noden til å godta oss som en aktiv sesjon
+                status.innerText = "Initierer sesjon...";
+                await writer.write(frame(new Uint8Array([0x18, 0x01])));
+                await new Promise(r => setTimeout(r, 500));
 
-                // 3. Vent på at enheten blir "Ready"
-                // Biblioteket gjør nå automatisk:
-                // - Henter metadata
-                // - Sjekker om PKI er aktiv
-                // - Utveksler Session Keys hvis nødvendig
-                device.onDeviceStatus.subscribe((status) => {
-                    logger(`Enhetsstatus: ${status}`);
-                });
+                // STEG 2: Send Reboot via ToRadio.admin (felt 4)
+                // Vi bruker varianten med want_response for å tvinge frem en reaksjon
+                // Bytes: 22 (ToRadio.admin) 04 (len) 10 (reboot) 01 (1s) 20 (want_res) 01 (true)
+                status.innerText = "Sender reboot...";
+                const rebootCmd = new Uint8Array([0x22, 0x04, 0x10, 0x01, 0x20, 0x01]);
+                await writer.write(frame(rebootCmd));
 
-                // Vi gir den noen sekunder til å fullføre håndtrykket
-                await new Promise(r => setTimeout(r, 3000));
-
-                logger("Sender Admin: Reboot-kommando...");
-
-                // 4. Send Reboot via den sikre kanalen
-                // Biblioteket pakker dette automatisk inn i en kryptert MeshPacket
-                // hvis noden krever det.
-                await device.reboot(1); 
-
-                logger("REBOOT SENDT!", true);
-                logger("Noden bør starte på nytt om et øyeblikk.");
-
-            } catch (err) {
-                logger(`FEIL: ${err.message}`);
-                console.error(err);
-            } finally {
-                btn.disabled = false;
+                writer.releaseLock();
+                status.innerText = "Fullført. Sjekk noden!";
+            } catch (e) {
+                alert("Feil: " + e.message);
             }
         };
     </script>
