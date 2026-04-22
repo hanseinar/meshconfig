@@ -547,22 +547,118 @@ async function sendAdmin(adminMsg) {
   await sendAdminRaw(adminMsg);
 }
 
+
+// ─── PKI Encryption (X25519 ECDH + AES-256-CTR) ──────────────────────────────
+// Meshtastic firmware 2.5+ requires PKI for admin commands.
+// Protocol: X25519 ECDH → 32-byte shared secret → AES-256-CTR key
+// Nonce: packetId (4 bytes, little-endian) + zeros to 16 bytes
+
+function base64ToBytes(b64) {
+  const bin = atob(b64);
+  return new Uint8Array([...bin].map(c => c.charCodeAt(0)));
+}
+
+function bytesToBase64(bytes) {
+  return btoa(String.fromCharCode(...bytes));
+}
+
+async function pkiEncrypt(plaintext, packetId) {
+  // Get node's public key from security config
+  const pubKeyVal = state.config.security?.publicKey;
+  if (!pubKeyVal) throw new Error('Node public key not available in config.security.publicKey');
+
+  let nodePubKeyBytes;
+  if (pubKeyVal instanceof Uint8Array) {
+    nodePubKeyBytes = pubKeyVal;
+  } else if (typeof pubKeyVal === 'string') {
+    nodePubKeyBytes = base64ToBytes(pubKeyVal);
+  } else {
+    // protobufjs may decode as array-like
+    nodePubKeyBytes = new Uint8Array(Object.values(pubKeyVal));
+  }
+
+  if (nodePubKeyBytes.length !== 32) {
+    throw new Error(`Node public key must be 32 bytes, got ${nodePubKeyBytes.length}`);
+  }
+
+  // Generate ephemeral X25519 key pair
+  const ourKeyPair = await crypto.subtle.generateKey(
+    { name: 'X25519' }, true, ['deriveBits']
+  );
+
+  // Export our public key (32 bytes raw)
+  const ourPubKeyBytes = new Uint8Array(
+    await crypto.subtle.exportKey('raw', ourKeyPair.publicKey)
+  );
+
+  // Import node's public key for ECDH
+  const nodePubKeyCrypto = await crypto.subtle.importKey(
+    'raw', nodePubKeyBytes, { name: 'X25519' }, false, []
+  );
+
+  // X25519 ECDH → 32-byte shared secret
+  const sharedBits = await crypto.subtle.deriveBits(
+    { name: 'X25519', public: nodePubKeyCrypto },
+    ourKeyPair.privateKey,
+    256
+  );
+
+  // Import shared secret as AES-256-CTR key
+  const aesKey = await crypto.subtle.importKey(
+    'raw', sharedBits, { name: 'AES-CTR' }, false, ['encrypt']
+  );
+
+  // Counter block: packetId (4 bytes, little-endian) + 12 zero bytes
+  const counter = new Uint8Array(16);
+  new DataView(counter.buffer).setUint32(0, packetId, true); // little-endian
+
+  // AES-256-CTR encrypt
+  const ciphertext = new Uint8Array(
+    await crypto.subtle.encrypt(
+      { name: 'AES-CTR', counter, length: 128 },
+      aesKey,
+      plaintext
+    )
+  );
+
+  console.log('PKI: encrypted', plaintext.length, 'bytes →', ciphertext.length, 'bytes');
+  console.log('PKI: ourPubKey:', bytesToBase64(ourPubKeyBytes));
+  console.log('PKI: nodePubKey:', bytesToBase64(nodePubKeyBytes));
+
+  return { ciphertext, ourPubKeyBytes };
+}
+
 async function sendAdminRaw(adminMsg, wantResponse=true) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
-  const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
-  // from=0 signals "local device" — firmware bypasses PKI auth for local access
-  // (AdminModule.cpp: "from==0 bypasses authorization unless is_managed=true")
-  const packet  = MeshPkt.create({
-    to:      nodeNum,
-    from:    0,          // LOCAL ACCESS: from=0 bypasses PKI requirement
-    decoded: Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
-    id:      (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
-    wantAck: true,
-    channel: 0,
-  });
-  console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey'));
+  const packetId = (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0;
+
+  const variant = Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey');
+  console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', variant);
+
+  let packet;
+  try {
+    // Attempt PKI encryption (required for firmware 2.5+)
+    const { ciphertext, ourPubKeyBytes } = await pkiEncrypt(adminBytes, packetId);
+    packet = MeshPkt.create({
+      to:           nodeNum,
+      from:         nodeNum,
+      encrypted:    ciphertext,
+      pkiEncrypted: true,
+      publicKey:    ourPubKeyBytes,
+      id:           packetId,
+      wantAck:      true,
+      channel:      0,
+    });
+    console.log('sendAdmin: PKI encrypted');
+  } catch(pkiErr) {
+    console.warn('PKI failed, falling back to plaintext:', pkiErr.message);
+    // Fallback: send unencrypted via ToRadio.admin
+    await writePacket(Types.ToRadio.create({ admin: adminMsg }));
+    return;
+  }
+
   await writePacket(Types.ToRadio.create({ packet }));
 }
 
