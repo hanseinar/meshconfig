@@ -1122,9 +1122,11 @@ async function rebootNode() {
     const Data4a = Root.lookupType('meshtastic.Data');
     const MP4a   = Root.lookupType('meshtastic.MeshPacket');
     const ab4a   = Types.AdminMessage.encode(Types.AdminMessage.create({ rebootSeconds: 5 })).finish();
+    // Android sends hopLimit from lora config (default 3), no pki_encrypted
+    const hopLim = state.config.lora?.hopLimit || 3;
     const p4a    = MP4a.create({ to: state.myInfo.myNodeNum,
       decoded: Data4a.create({ portnum: 6, payload: ab4a, wantResponse: true }),
-      id: (Math.floor(Math.random()*0x7fffffff)+1)>>>0, wantAck: true });
+      id: (Math.floor(Math.random()*0x7fffffff)+1)>>>0, wantAck: true, hopLimit: hopLim });
     await writePacket(Types.ToRadio.create({ packet: p4a }));
     console.log('Test 4a: sent');
   } catch(e) { console.error('Test 4a FAILED:', e); }
