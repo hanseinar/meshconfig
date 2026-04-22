@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Meshtastic PKI Discovery</title>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body style="font-family: monospace; background: #0d1117; color: #58a6ff; padding: 20px;">
+    <h2>Discovery: Er PKI aktivert?</h2>
+    <button id="check" style="padding: 15px; cursor: pointer; background: #238636; color: white; border: none; border-radius: 6px;">Koble til og analyser sikkerhet</button>
+    
+    <div id="status" style="margin-top: 20px; color: #ffa657;"></div>
+    <pre id="output" style="background: #161b22; padding: 15px; border: 1px solid #30363d; margin-top: 10px; overflow-x: auto;"></pre>
+
+    <script>
+        const PROTO_URL = "https://githubusercontent.com";
+
+        document.getElementById('check').onclick = async () => {
+            const status = document.getElementById('status');
+            const output = document.getElementById('output');
+            
+            try {
+                const root = await protobuf.load(PROTO_URL);
+                const ToRadio = root.lookupType("meshtastic.ToRadio");
+                const FromRadio = root.lookupType("meshtastic.FromRadio");
+
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+
+                status.innerText = "Ber om Device Metadata...";
+
+                // Send forespørsel om Metadata (ToRadio.want_config_id = some_random_id)
+                const req = ToRadio.create({ wantConfigId: Math.floor(Math.random() * 1000) });
+                const buf = ToRadio.encode(req).finish();
+                const framed = new Uint8Array([0x94, 0xc3, 0x00, buf.length, ...buf]);
+
+                const writer = port.writable.getWriter();
+                await writer.write(framed);
+                writer.releaseLock();
+
+                // Lytt etter svar
+                const reader = port.readable.getReader();
+                let foundMetadata = false;
+
+                while (!foundMetadata) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+
+                    // Enkel header-scanning for å finne ToRadio pakker i strømmen
+                    for (let i = 0; i < value.length; i++) {
+                        if (value[i] === 0x94 && value[i+1] === 0xc3) {
+                            const len = value[i+3];
+                            const payload = value.slice(i+4, i+4 + len);
+                            try {
+                                const decoded = FromRadio.decode(payload);
+                                
+                                if (decoded.deviceMetadata) {
+                                    foundMetadata = true;
+                                    const meta = decoded.deviceMetadata;
+                                    
+                                    let securityReport = `=== SIKKERHETSRAPPORT ===\n`;
+                                    securityReport += `Firmware: ${meta.firmwareVersion || 'Ukjent'}\n`;
+                                    securityReport += `PKI Auth Enabled: ${meta.pkiAuthEnabled ? "JA (KREVER KRYPTERING)" : "NEI (SKAL VIRKE)"}\n`;
+                                    securityReport += `Public Key (Base64): ${meta.publicKey ? btoa(String.fromCharCode(...meta.publicKey)) : 'Ingen funnet'}\n`;
+                                    securityReport += `--------------------------\n`;
+                                    securityReport += `Full Metadata: ${JSON.stringify(meta, null, 2)}`;
+                                    
+                                    output.innerText = securityReport;
+                                    status.innerText = meta.pkiAuthEnabled ? "⚠️ PKI er aktiv - dette blokkerer skriving." : "✅ PKI er av - skriving burde virket.";
+                                }
+                            } catch (e) {}
+                        }
+                    }
+                }
+            } catch (err) {
+                status.innerText = "Feil: " + err.message;
+            }
+        };
+    </script>
+</body>
+</html>
