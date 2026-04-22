@@ -564,7 +564,6 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
     id:       (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
     wantAck:  true,
     hopLimit: hopLim,
-    channel:  0,
     priority:     70,
     pkiEncrypted: true,
   });
