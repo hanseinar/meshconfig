@@ -1475,10 +1475,18 @@
             },
             "viaMqtt": {
               "type": "bool",
-              "id": 16
+              "id": 21
             },
             "hopStart": {
               "type": "uint32",
+              "id": 19
+            },
+            "publicKey": {
+              "type": "bytes",
+              "id": 16
+            },
+            "pkiEncrypted": {
+              "type": "bool",
               "id": 17
             }
           }
