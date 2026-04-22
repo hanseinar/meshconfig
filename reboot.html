@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Meshtastic Reboot Tool</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; }
+        button { padding: 15px 30px; font-size: 1.2rem; cursor: pointer; border: none; border-radius: 8px; background: #007bff; color: white; transition: background 0.2s; }
+        button:hover { background: #0056b3; }
+        button:disabled { background: #ccc; }
+        #status { margin-top: 20px; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h2>Meshtastic 2.7.x Reboot</h2>
+    <button id="btn">Koble til og Reboot</button>
+    <p id="status">Klikk på knappen for å velge Meshtastic-node</p>
+
+    <script>
+        const btn = document.getElementById('btn');
+        const status = document.getElementById('status');
+
+        btn.addEventListener('click', async () => {
+            try {
+                // 1. Be om tilgang til serieport
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                
+                status.innerText = "Koblet til. Sender reboot...";
+                btn.disabled = true;
+
+                // 2. Den magiske reboot-pakken (ToRadio.admin.reboot_seconds = 1)
+                // [Header][Lengde][ToRadio Field 4 (Admin)][Admin Field 2 (Reboot)]
+                const rebootPacket = new Uint8Array([
+                    0x94, 0xc3, // Serial framing header
+                    0x00, 0x04, // Lengde på payload (4 bytes)
+                    0x22,       // ToRadio: admin (felt 4, wire type 2)
+                    0x02,       // Lengde på AdminMessage
+                    0x10,       // AdminMessage: reboot_seconds (felt 2, varint)
+                    0x01        // Verdi: 1 sekund
+                ]);
+
+                // 3. Skriv til porten
+                const writer = port.writable.getWriter();
+                await writer.write(rebootPacket);
+                
+                // Slipp låsen og lukk (noden rebooter uansett nå)
+                writer.releaseLock();
+                await port.close();
+
+                status.innerText = "Reboot-kommando sendt! Noden bør starte på nytt nå.";
+                btn.disabled = false;
+
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Feil: " + err.message;
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
