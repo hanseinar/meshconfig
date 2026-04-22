@@ -1,47 +1,69 @@
 <!DOCTYPE html>
-<html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>MeshConfig 2.7.x Fix</title>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
+        #status { margin-top: 20px; color: #aaa; font-family: monospace; }
+        button { padding: 20px; font-size: 1.2rem; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 10px; }
+        button:disabled { background: #444; }
+    </style>
+</head>
 <body>
-    <h2>Meshtastic 2.7.x Web Fix</h2>
-    <button id="btn">Koble til & Reboot</button>
+
+    <h1>Secure Reboot (2.7.x)</h1>
+    <button id="btn">KOBLE TIL & REBOOT</button>
     <div id="status">Klar...</div>
 
-    <script>
-        // Denne funksjonen lager Meshtastic Serial Framing (94 c3 + len)
-        function frame(payload) {
-            const res = new Uint8Array(4 + payload.length);
-            res[0] = 0x94; res[1] = 0xc3;
-            res[2] = (payload.length >> 8) & 0xff;
-            res[3] = payload.length & 0xff;
-            res.set(payload, 4);
-            return res;
-        }
+    <script type="module">
+        // Vi henter de tre nødvendige delene fra biblioteket
+        import { SerialConnection, MeshDevice, DeviceStatus } from 'https://skypack.dev';
 
-        document.getElementById('btn').onclick = async () => {
+        const btn = document.getElementById('btn');
+        const status = document.getElementById('status');
+
+        btn.onclick = async () => {
+            status.innerText = "Ber om port...";
+            btn.disabled = true;
+
             try {
-                const port = await navigator.serial.requestPort();
-                await port.open({ baudRate: 115200 });
-                await port.setSignals({ dataTerminalReady: true, requestToSend: true });
-                
-                const writer = port.writable.getWriter();
-                const status = document.getElementById('status');
+                // 1. Opprett tilkobling
+                const connection = new SerialConnection();
+                const device = new MeshDevice(connection);
 
-                // STEG 1: Send "Want Config" for å initiere sesjonen (ToRadio felt 3)
-                // Dette får noden til å godta oss som en aktiv sesjon
-                status.innerText = "Initierer sesjon...";
-                await writer.write(frame(new Uint8Array([0x18, 0x01])));
-                await new Promise(r => setTimeout(r, 500));
+                // 2. Start WebSerial
+                await connection.connect();
+                status.innerText = "Koblet til. Forhandler sikker sesjon...";
 
-                // STEG 2: Send Reboot via ToRadio.admin (felt 4)
-                // Vi bruker varianten med want_response for å tvinge frem en reaksjon
-                // Bytes: 22 (ToRadio.admin) 04 (len) 10 (reboot) 01 (1s) 20 (want_res) 01 (true)
-                status.innerText = "Sender reboot...";
-                const rebootCmd = new Uint8Array([0x22, 0x04, 0x10, 0x01, 0x20, 0x01]);
-                await writer.write(frame(rebootCmd));
+                // 3. Vent på at PKI-håndtrykket blir ferdig (DeviceReady)
+                const subscription = device.onDeviceStatus.subscribe((s) => {
+                    console.log("Status endret:", s);
+                    
+                    if (s === 2) { // 2 er "DeviceStatus.DeviceReady"
+                        status.innerText = "Sikker sesjon OK! Sender reboot...";
+                        
+                        device.reboot(1).then(() => {
+                            status.innerText = "REBOOT SENDT! Noden starter på nytt.";
+                            btn.disabled = false;
+                            subscription.unsubscribe();
+                        }).catch(err => {
+                            status.innerText = "Feil ved sending: " + err.message;
+                        });
+                    }
+                });
 
-                writer.releaseLock();
-                status.innerText = "Fullført. Sjekk noden!";
-            } catch (e) {
-                alert("Feil: " + e.message);
+                // Fail-safe hvis ingenting skjer på 10 sekunder
+                setTimeout(() => {
+                    if (btn.disabled && status.innerText.includes("Forhandler")) {
+                        status.innerText = "Timeout: Noden svarte ikke på PKI-forespørsel.";
+                        btn.disabled = false;
+                    }
+                }, 10000);
+
+            } catch (err) {
+                status.innerText = "Feil: " + err.message;
+                btn.disabled = false;
             }
         };
     </script>
