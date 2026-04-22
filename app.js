@@ -565,6 +565,8 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
     wantAck:  true,
     hopLimit: hopLim,
     channel:  0,
+    priority:     70,
+    pkiEncrypted: true,
   });
   await writePacket(Types.ToRadio.create({ packet }));
 }
