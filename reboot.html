@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="no">
+<head>
+    <meta charset="UTF-8">
+    <title>Meshtastic 2.7.x Reboot Fix</title>
+    <style>
+        body { font-family: sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #f0f2f5; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); text-align: center; }
+        button { padding: 15px 30px; font-size: 1.1rem; cursor: pointer; border: none; border-radius: 8px; background: #e63946; color: white; font-weight: bold; }
+        button:hover { background: #c1121f; }
+        button:disabled { background: #ccc; }
+        #log { margin-top: 20px; font-family: monospace; font-size: 0.8rem; color: #666; text-align: left; background: #eee; padding: 10px; width: 100%; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>Meshtastic Reboot</h2>
+        <p>For Firmware 2.7.x (Heltec/ESP32)</p>
+        <button id="btn">KOBLE TIL & REBOOT</button>
+        <div id="log">Status: Klar.</div>
+    </div>
+
+    <script>
+        const btn = document.getElementById('btn');
+        const logDiv = document.getElementById('log');
+
+        function logger(msg) {
+            logDiv.innerText = "Status: " + msg;
+            console.log(msg);
+        }
+
+        btn.addEventListener('click', async () => {
+            let port;
+            try {
+                // 1. Åpne port
+                port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                
+                // 2. SETT DTR/RTS - Dette er ofte forskjellen på suksess og feil
+                await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+                
+                logger("Port åpen. Venter på UART...");
+                btn.disabled = true;
+
+                // En kort pause så noden rekker å registrere tilkoblingen
+                await new Promise(r => setTimeout(r, 500));
+
+                // 3. Den "magiske" reboot-pakken
+                // 94 c3 (header) 00 04 (lengde) 22 (ToRadio.admin) 02 (len) 10 (reboot) 01 (verdi)
+                const rebootPacket = new Uint8Array([0x94, 0xc3, 0x00, 0x04, 0x22, 0x02, 0x10, 0x01]);
+
+                const writer = port.writable.getWriter();
+                logger("Sender bytes: " + Array.from(rebootPacket).map(b => b.toString(16).padStart(2, '0')).join(' '));
+                
+                await writer.write(rebootPacket);
+                
+                // 4. Rydd opp
+                writer.releaseLock();
+                
+                // Noen noder trenger et øyeblikk før porten lukkes
+                await new Promise(r => setTimeout(r, 200));
+                await port.close();
+
+                logger("Fullført! Hvis noden ikke rebootet nå, krever den PKI-autentisering.");
+                btn.disabled = false;
+
+            } catch (err) {
+                logger("FEIL: " + err.message);
+                btn.disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
