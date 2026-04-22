@@ -1,75 +1,57 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Meshtastic PKI Discovery</title>
-    <script src="https://jsdelivr.net"></script>
+    <title>Meshtastic PKI Discovery (Raw)</title>
 </head>
 <body style="font-family: monospace; background: #0d1117; color: #58a6ff; padding: 20px;">
-    <h2>Discovery: Er PKI aktivert?</h2>
-    <button id="check" style="padding: 15px; cursor: pointer; background: #238636; color: white; border: none; border-radius: 6px;">Koble til og analyser sikkerhet</button>
+    <h2>Discovery: Sjekker PKI-status (Uten biblioteker)</h2>
+    <button id="check" style="padding: 15px; cursor: pointer; background: #238636; color: white; border: none; border-radius: 6px;">Koble til og sjekk</button>
     
     <div id="status" style="margin-top: 20px; color: #ffa657;"></div>
-    <pre id="output" style="background: #161b22; padding: 15px; border: 1px solid #30363d; margin-top: 10px; overflow-x: auto;"></pre>
+    <pre id="output" style="background: #161b22; padding: 15px; border: 1px solid #30363d; margin-top: 10px; white-space: pre-wrap; color: #d1d5da;"></pre>
 
     <script>
-        const PROTO_URL = "https://githubusercontent.com";
-
         document.getElementById('check').onclick = async () => {
             const status = document.getElementById('status');
             const output = document.getElementById('output');
+            output.innerText = "";
             
             try {
-                const root = await protobuf.load(PROTO_URL);
-                const ToRadio = root.lookupType("meshtastic.ToRadio");
-                const FromRadio = root.lookupType("meshtastic.FromRadio");
-
                 const port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200 });
                 await port.setSignals({ dataTerminalReady: true, requestToSend: true });
 
-                status.innerText = "Ber om Device Metadata...";
+                status.innerText = "Sender Metadata-forespørsel...";
 
-                // Send forespørsel om Metadata (ToRadio.want_config_id = some_random_id)
-                const req = ToRadio.create({ wantConfigId: Math.floor(Math.random() * 1000) });
-                const buf = ToRadio.encode(req).finish();
-                const framed = new Uint8Array([0x94, 0xc3, 0x00, buf.length, ...buf]);
+                // Rå ToRadio pakke: want_config_id = 1
+                // Bytes: 18 (felt 3) 01 (verdi 1)
+                const payload = new Uint8Array([0x18, 0x01]);
+                const framed = new Uint8Array([0x94, 0xc3, 0x00, payload.length, ...payload]);
 
                 const writer = port.writable.getWriter();
                 await writer.write(framed);
                 writer.releaseLock();
 
-                // Lytt etter svar
+                status.innerText = "Lytter etter svar (deviceMetadata)...";
                 const reader = port.readable.getReader();
-                let foundMetadata = false;
 
-                while (!foundMetadata) {
+                // Vi ser etter mønsteret for deviceMetadata i FromRadio
+                // I Protobuf er deviceMetadata felt nr 11. 
+                // Vi skanner etter "5a" (felt 11, wire type 2) eller kjente strenger.
+                
+                const timeout = setTimeout(() => { reader.cancel(); status.innerText = "Ferdig (Timeout)"; }, 5000);
+
+                while (true) {
                     const { value, done } = await reader.read();
                     if (done) break;
 
-                    // Enkel header-scanning for å finne ToRadio pakker i strømmen
-                    for (let i = 0; i < value.length; i++) {
-                        if (value[i] === 0x94 && value[i+1] === 0xc3) {
-                            const len = value[i+3];
-                            const payload = value.slice(i+4, i+4 + len);
-                            try {
-                                const decoded = FromRadio.decode(payload);
-                                
-                                if (decoded.deviceMetadata) {
-                                    foundMetadata = true;
-                                    const meta = decoded.deviceMetadata;
-                                    
-                                    let securityReport = `=== SIKKERHETSRAPPORT ===\n`;
-                                    securityReport += `Firmware: ${meta.firmwareVersion || 'Ukjent'}\n`;
-                                    securityReport += `PKI Auth Enabled: ${meta.pkiAuthEnabled ? "JA (KREVER KRYPTERING)" : "NEI (SKAL VIRKE)"}\n`;
-                                    securityReport += `Public Key (Base64): ${meta.publicKey ? btoa(String.fromCharCode(...meta.publicKey)) : 'Ingen funnet'}\n`;
-                                    securityReport += `--------------------------\n`;
-                                    securityReport += `Full Metadata: ${JSON.stringify(meta, null, 2)}`;
-                                    
-                                    output.innerText = securityReport;
-                                    status.innerText = meta.pkiAuthEnabled ? "⚠️ PKI er aktiv - dette blokkerer skriving." : "✅ PKI er av - skriving burde virket.";
-                                }
-                            } catch (e) {}
-                        }
+                    const hex = Array.from(value).map(b => b.toString(16).padStart(2, '0')).join(' ');
+                    output.innerText += hex + " ";
+
+                    // Hurtigsjekk: "pki_auth_enabled" er ofte streng-basert i metadata
+                    // Vi leter etter tegn på om PKI er på (ofte etterfulgt av en lang public key)
+                    if (hex.includes("5a")) { // Indikasjon på metadata-felt
+                         status.innerText = "Data mottatt. Analyser loggen over for lange strenger (Public Key).";
                     }
                 }
             } catch (err) {
