@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Meshtastic 2.7.x Monitor</title>
+    <script src="https://jsdelivr.net"></script>
+</head>
+<body style="font-family: monospace; background: #1a1a1a; color: #00ff00; padding: 20px;">
+    <h2>1. Monitor (Finn Session Key)</h2>
+    <button id="connect" style="padding: 10px 20px; cursor: pointer;">Koble til Node</button>
+    <div id="output" style="margin-top: 20px; white-space: pre-wrap;">Venter på tilkobling...</div>
+
+    <script>
+        const PROTO_URL = "https://githubusercontent.com";
+        let state = { sessionKey: "Ikke funnet ennå" };
+
+        document.getElementById('connect').onclick = async () => {
+            const root = await protobuf.load(PROTO_URL);
+            const FromRadio = root.lookupType("meshtastic.FromRadio");
+            const port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+
+            const reader = port.readable.getReader();
+            document.getElementById('output').innerText = "Lytter... (Se etter sessionPasskey)\n";
+
+            while (true) {
+                const { value, done } = await reader.read();
+                if (done) break;
+
+                // Enkel header-sjekk (0x94 0xc3)
+                if (value[0] === 0x94 && value[1] === 0xc3) {
+                    const len = (value[2] << 8) | value[3];
+                    const payload = value.slice(4, 4 + len);
+                    try {
+                        const decoded = FromRadio.decode(payload);
+                        
+                        // Sjekk etter session key i alle deler av responsen
+                        if (decoded.adminResponse?.sessionPasskey) {
+                            state.sessionKey = decoded.adminResponse.sessionPasskey;
+                            document.body.style.background = "#002b00";
+                        }
+                        
+                        document.getElementById('output').prepend(
+                            `[${new Date().toLocaleTimeString()}] Mottatt: ${JSON.stringify(decoded, null, 2)}\n\n`
+                        );
+                    } catch (e) { /* dekodingsfeil på fragmenter */ }
+                }
+            }
+        };
+    </script>
+</body>
+</html>
