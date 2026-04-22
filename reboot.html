@@ -2,68 +2,63 @@
 <html lang="no">
 <head>
     <meta charset="UTF-8">
-    <title>MeshConfig 2.7.x Fix</title>
+    <title>MeshConfig 2.7.x - Som Flasheren</title>
     <style>
         body { font-family: sans-serif; text-align: center; padding: 50px; background: #1a1a1a; color: white; }
-        #status { margin-top: 20px; color: #aaa; font-family: monospace; }
-        button { padding: 20px; font-size: 1.2rem; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 10px; }
-        button:disabled { background: #444; }
+        button { padding: 20px; font-size: 1.2rem; cursor: pointer; background: #238636; color: white; border: none; border-radius: 10px; }
+        #log { margin-top: 20px; font-family: monospace; color: #888; text-align: left; max-width: 500px; margin-left: auto; margin-right: auto; background: #000; padding: 10px; }
     </style>
 </head>
 <body>
 
     <h1>Secure Reboot (2.7.x)</h1>
     <button id="btn">KOBLE TIL & REBOOT</button>
-    <div id="status">Klar...</div>
+    <div id="log">Status: Klar. Vent på tilkobling...</div>
 
+    <!-- Vi bruker Meshtastic sitt offisielle bibliotek fra en kilde som garantert fungerer i browser -->
     <script type="module">
-        // Vi henter de tre nødvendige delene fra biblioteket
-        import { SerialConnection, MeshDevice, DeviceStatus } from 'https://skypack.dev';
+        // Vi bruker ESM.run som ofte er mer stabil for ferdige pakker
+        import { SerialConnection, MeshDevice } from 'https://jsdelivr.net';
 
         const btn = document.getElementById('btn');
-        const status = document.getElementById('status');
+        const log = document.getElementById('log');
+
+        function writeLog(msg) {
+            log.innerText += "\n> " + msg;
+            console.log(msg);
+        }
 
         btn.onclick = async () => {
-            status.innerText = "Ber om port...";
-            btn.disabled = true;
-
+            writeLog("Ber om port...");
             try {
-                // 1. Opprett tilkobling
                 const connection = new SerialConnection();
                 const device = new MeshDevice(connection);
 
-                // 2. Start WebSerial
+                // Koble til serieporten
                 await connection.connect();
-                status.innerText = "Koblet til. Forhandler sikker sesjon...";
+                writeLog("Port åpen. Venter på PKI-håndtrykk...");
 
-                // 3. Vent på at PKI-håndtrykket blir ferdig (DeviceReady)
-                const subscription = device.onDeviceStatus.subscribe((s) => {
-                    console.log("Status endret:", s);
-                    
-                    if (s === 2) { // 2 er "DeviceStatus.DeviceReady"
-                        status.innerText = "Sikker sesjon OK! Sender reboot...";
-                        
-                        device.reboot(1).then(() => {
-                            status.innerText = "REBOOT SENDT! Noden starter på nytt.";
-                            btn.disabled = false;
-                            subscription.unsubscribe();
-                        }).catch(err => {
-                            status.innerText = "Feil ved sending: " + err.message;
-                        });
+                // Lytter på status
+                device.onDeviceStatus.subscribe(async (status) => {
+                    // status 2 betyr 'DeviceStatus.DeviceReady'
+                    if (status === 2) {
+                        writeLog("Sikker sesjon OK! Sender reboot...");
+                        try {
+                            await device.reboot(1);
+                            writeLog("REBOOT SENDT! Noden starter på nytt.");
+                        } catch (e) {
+                            writeLog("Feil ved reboot: " + e.message);
+                        }
+                    } else {
+                        writeLog("Status-oppdatering: " + status);
                     }
                 });
 
-                // Fail-safe hvis ingenting skjer på 10 sekunder
-                setTimeout(() => {
-                    if (btn.disabled && status.innerText.includes("Forhandler")) {
-                        status.innerText = "Timeout: Noden svarte ikke på PKI-forespørsel.";
-                        btn.disabled = false;
-                    }
-                }, 10000);
-
             } catch (err) {
-                status.innerText = "Feil: " + err.message;
-                btn.disabled = false;
+                writeLog("FEIL: " + err.message);
+                if (err.message.includes("buffer")) {
+                    writeLog("Tips: Browseren din mangler Polyfills for krypto.");
+                }
             }
         };
     </script>
