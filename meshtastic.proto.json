@@ -1441,7 +1441,7 @@
               "id": 2
             },
             "channel": {
-              "type": "fixed32",
+              "type": "uint32",
               "id": 3
             },
             "decoded": {
