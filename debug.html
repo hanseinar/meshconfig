@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h2>Meshtastic 2.7.x Debugger</h2>
+    <button id="btn">Start lytting (10 sek)</button>
+    <pre id="out" style="background:#eee; padding:10px;"></pre>
+
+    <script>
+        const btn = document.getElementById('btn');
+        const out = document.getElementById('out');
+
+        btn.onclick = async () => {
+            const port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+            await port.setSignals({ dataTerminalReady: true, requestToSend: true });
+            
+            const reader = port.readable.getReader();
+            out.innerText = "Lytter... se etter 'session_passkey' eller 'pki'\n";
+
+            // Enkel loop for å lese rådata og prøve å se tekst-strenger/logger
+            try {
+                const timeout = setTimeout(() => reader.releaseLock(), 10000);
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    // Vi dumper som hex for å se mønstre
+                    out.innerText += Array.from(value).map(b => b.toString(16).padStart(2, '0')).join(' ') + "\n";
+                }
+            } catch (e) { out.innerText += "\nFerdig."; }
+        };
+    </script>
+</body>
+</html>
