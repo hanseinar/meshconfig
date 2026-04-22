@@ -1399,7 +1399,6 @@
               "oneof": [
                 "packet",
                 "wantConfigId",
-                "admin",
                 "heartbeat"
               ]
             }
@@ -1407,15 +1406,11 @@
           "fields": {
             "packet": {
               "type": "MeshPacket",
-              "id": 2
+              "id": 1
             },
             "wantConfigId": {
               "type": "uint32",
               "id": 3
-            },
-            "admin": {
-              "type": "AdminMessage",
-              "id": 4
             },
             "heartbeat": {
               "type": "bool",
@@ -1435,19 +1430,19 @@
           "fields": {
             "to": {
               "type": "fixed32",
-              "id": 1
+              "id": 2
             },
             "from": {
               "type": "fixed32",
-              "id": 2
+              "id": 1
             },
             "decoded": {
               "type": "Data",
-              "id": 3
+              "id": 4
             },
             "encrypted": {
               "type": "bytes",
-              "id": 8
+              "id": 5
             },
             "id": {
               "type": "fixed32",
@@ -1455,23 +1450,23 @@
             },
             "rxTime": {
               "type": "fixed32",
-              "id": 9
+              "id": 7
             },
             "rxSnr": {
               "type": "float",
-              "id": 10
+              "id": 8
             },
             "hopLimit": {
               "type": "uint32",
-              "id": 11
+              "id": 9
             },
             "wantAck": {
               "type": "bool",
-              "id": 12
+              "id": 10
             },
             "channel": {
               "type": "fixed32",
-              "id": 15
+              "id": 3
             },
             "viaMqtt": {
               "type": "bool",
@@ -1568,11 +1563,11 @@
             },
             "logRecord": {
               "type": "LogRecord",
-              "id": 7
+              "id": 6
             },
             "configCompleteId": {
               "type": "uint32",
-              "id": 8
+              "id": 7
             },
             "channel": {
               "type": "Channel",
@@ -1580,7 +1575,7 @@
             },
             "moduleConfig": {
               "type": "ModuleConfig",
-              "id": 11
+              "id": 9
             },
             "deviceMetadata": {
               "type": "DeviceMetadata",
@@ -1592,7 +1587,7 @@
             },
             "deviceUiConfig": {
               "type": "bytes",
-              "id": 15
+              "id": 17
             }
           }
         },
