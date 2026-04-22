@@ -681,10 +681,6 @@ function handleIncomingPacket(packet) {
     const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
     console.log('Admin response decoded:', JSON.stringify(adminResp));
     if (adminResp.sessionPasskey && adminResp.sessionPasskey.length > 0) {
-  try {
-    const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
-    console.log('Admin response received, keys:', Object.keys(adminResp).filter(k => adminResp[k]));
-    if (adminResp.sessionPasskey && adminResp.sessionPasskey.length > 0) {
       adminSessionKey = adminResp.sessionPasskey;
       console.log('Session key obtained:', adminSessionKey.length, 'bytes');
     }
