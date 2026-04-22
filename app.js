@@ -1010,13 +1010,31 @@ async function rebootNode() {
 
   await sleep(1000);
 
-  // Test 2: send reboot via MeshPacket with from=0 (local auth bypass)
-  console.log('Test 2: sending reboot via MeshPacket from=0...');
-  const rebootMsg = Types.AdminMessage.create({ rebootSeconds: 5 });
+  // Test 2: ToRadio.admin DIRECT (field 4) — no MeshPacket
+  console.log('Test 2: ToRadio.admin direct...');
+  const tr2 = Types.ToRadio.create({ admin: Types.AdminMessage.create({ rebootSeconds: 5 }) });
+  const enc2 = Types.ToRadio.encode(tr2).finish();
+  console.log('Test 2 bytes:', Array.from(enc2).map(b=>b.toString(16).padStart(2,'0')).join(' '));
+  try { await writePacket(tr2); console.log('Test 2: OK'); } catch(e) { console.error('Test 2 FAILED:', e); }
+
+  await sleep(2000);
+
+  // Test 3: raw framed bytes — bypasses our encoder entirely
+  // 22=ToRadio.field4, 03=3bytes, 88 06=AdminMsg.field97(varint), 05=5sec
+  console.log('Test 3: raw framed bytes...');
+  const rawAdmin = new Uint8Array([0x22, 0x03, 0x88, 0x06, 0x05]);
+  const frame3 = new Uint8Array(4 + rawAdmin.length);
+  frame3[0]=0x94; frame3[1]=0xc3;
+  frame3[2]=0; frame3[3]=rawAdmin.length;
+  frame3.set(rawAdmin, 4);
+  console.log('Test 3 frame:', Array.from(frame3).map(b=>b.toString(16).padStart(2,'0')).join(' '));
   try {
-    await sendAdmin(rebootMsg);
-    console.log('Test 2 write: OK — watching for reboot response...');
-  } catch(e) { console.error('Test 2 write FAILED:', e); }
+    const w = state.port.writable.getWriter();
+    await new Promise(r=>setTimeout(r,50));
+    await w.write(frame3);
+    w.releaseLock();
+    console.log('Test 3: OK');
+  } catch(e) { console.error('Test 3 FAILED:', e); }
 
   alert('Diagnostics complete — check F12 console.');
 }
