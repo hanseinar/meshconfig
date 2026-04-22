@@ -648,7 +648,7 @@ function dispatchFromRadio(msg) {
     case 'configCompleteId': handleConfigComplete();                    break;
     case 'deviceUiConfig':   break;
     case 'packet':           handleIncomingPacket(msg.packet);              break;
-    case 'logRecord':        console.debug('[Node]',msg.logRecord?.message); break;
+    case 'logRecord':        console.log('[Node]',msg.logRecord?.message); break;
     default:                 console.debug('FromRadio unhandled:',v);   break;
   }
 }
