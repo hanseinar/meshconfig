@@ -1116,13 +1116,33 @@ async function rebootNode() {
 
   await sleep(2000);
 
-  // Test 4: PKI-encrypted reboot via sendAdmin() — the new PKI path
-  console.log('Test 4: PKI-encrypted reboot via sendAdmin()...');
+  // Test 4a: plain MeshPacket, no pki_encrypted flag
+  console.log('Test 4a: plain MeshPacket no pki_encrypted...');
   try {
-    const rebootPki = Types.AdminMessage.create({ rebootSeconds: 5 });
-    await sendAdmin(rebootPki);
-    console.log('Test 4: PKI send OK — watching for reboot...');
-  } catch(e) { console.error('Test 4 FAILED:', e.message); }
+    const Data4a = Root.lookupType('meshtastic.Data');
+    const MP4a   = Root.lookupType('meshtastic.MeshPacket');
+    const ab4a   = Types.AdminMessage.encode(Types.AdminMessage.create({ rebootSeconds: 5 })).finish();
+    const p4a    = MP4a.create({ to: state.myInfo.myNodeNum,
+      decoded: Data4a.create({ portnum: 6, payload: ab4a, wantResponse: true }),
+      id: (Math.floor(Math.random()*0x7fffffff)+1)>>>0, wantAck: true });
+    await writePacket(Types.ToRadio.create({ packet: p4a }));
+    console.log('Test 4a: sent');
+  } catch(e) { console.error('Test 4a FAILED:', e); }
+
+  await sleep(3000);
+
+  // Test 4b: request session key, then reboot with it
+  console.log('Test 4b: session key request + reboot...');
+  adminSessionKey = null;
+  await ensureSessionKey();
+  await sleep(1000);
+  console.log('Test 4b: session key:', adminSessionKey ? adminSessionKey.length+' bytes' : 'none');
+  try {
+    const rb4b = Types.AdminMessage.create({ rebootSeconds: 5 });
+    if (adminSessionKey) rb4b.sessionPasskey = adminSessionKey;
+    await sendAdmin(rb4b);
+    console.log('Test 4b: sent, sessionKey='+!!adminSessionKey);
+  } catch(e) { console.error('Test 4b FAILED:', e); }
 
   await sleep(3000);
 
