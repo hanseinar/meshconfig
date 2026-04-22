@@ -529,7 +529,7 @@ async function ensureSessionKey() {
   console.log('Requesting session key via getConfigRequest(DEVICE)...');
   // Firmware automatically attaches session_passkey (field 101) to ANY admin response.
   // Send a harmless read op — getConfigRequest with type DEVICE (0) — and capture the passkey.
-  await sendAdminRaw(Types.AdminMessage.create({ getConfigRequest: 0 }), true);
+  await sendAdminRaw(Types.AdminMessage.create({ getConfigRequest: 7 }), true);
   for (let i = 0; i < 40; i++) {
     await sleep(100);
     if (adminSessionKey) { console.log('Session key obtained:', adminSessionKey.length, 'bytes'); return true; }
