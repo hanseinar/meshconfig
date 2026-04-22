@@ -559,7 +559,7 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
   // Matches Test 4a that confirmed reboot works
   const packet = MeshPkt.create({
     to:       nodeNum,
-    decoded:  Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
+    decoded:  Data.create({ portnum: 68, payload: adminBytes, wantResponse }),
     id:       (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
     wantAck:  true,
     hopLimit: hopLim,
