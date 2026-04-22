@@ -542,6 +542,10 @@
                 "paFanDisabled": {
                   "type": "bool",
                   "id": 15
+                },
+                "ignoreMqtt": {
+                  "type": "bool",
+                  "id": 16
                 }
               },
               "nested": {
@@ -1428,13 +1432,17 @@
             }
           },
           "fields": {
+            "from": {
+              "type": "fixed32",
+              "id": 1
+            },
             "to": {
               "type": "fixed32",
               "id": 2
             },
-            "from": {
+            "channel": {
               "type": "fixed32",
-              "id": 1
+              "id": 3
             },
             "decoded": {
               "type": "Data",
@@ -1464,9 +1472,9 @@
               "type": "bool",
               "id": 10
             },
-            "channel": {
-              "type": "fixed32",
-              "id": 3
+            "priority": {
+              "type": "uint32",
+              "id": 11
             },
             "viaMqtt": {
               "type": "bool",
