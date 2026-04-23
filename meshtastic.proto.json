@@ -542,10 +542,6 @@
                 "paFanDisabled": {
                   "type": "bool",
                   "id": 15
-                },
-                "ignoreMqtt": {
-                  "type": "bool",
-                  "id": 16
                 }
               },
               "nested": {
@@ -793,7 +789,7 @@
                 },
                 "adminChannelEnabled": {
                   "type": "bool",
-                  "id": 7
+                  "id": 8
                 }
               }
             }
@@ -1358,7 +1354,7 @@
             },
             "sessionPasskey": {
               "type": "bytes",
-              "id": 101
+              "id": 256
             },
             "rebootSeconds": {
               "type": "int32",
@@ -1432,17 +1428,13 @@
             }
           },
           "fields": {
-            "from": {
-              "type": "fixed32",
-              "id": 1
-            },
             "to": {
               "type": "fixed32",
               "id": 2
             },
-            "channel": {
-              "type": "uint32",
-              "id": 3
+            "from": {
+              "type": "fixed32",
+              "id": 1
             },
             "decoded": {
               "type": "Data",
@@ -1472,9 +1464,9 @@
               "type": "bool",
               "id": 10
             },
-            "priority": {
-              "type": "uint32",
-              "id": 11
+            "channel": {
+              "type": "fixed32",
+              "id": 3
             },
             "viaMqtt": {
               "type": "bool",
