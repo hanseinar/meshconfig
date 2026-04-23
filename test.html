@@ -1,66 +1,41 @@
 <!DOCTYPE html>
-<html lang="no">
+<html>
 <head>
     <meta charset="UTF-8">
-    <title>Meshtastic Navnebytte</title>
-    <!-- Vi henter nå biblioteket lokalt fra samme mappe -->
-    <script src="meshtastic.js"></script>
-    <style>
-        body { font-family: sans-serif; padding: 20px; max-width: 500px; margin: auto; }
-        .box { border: 1px solid #ccc; padding: 20px; border-radius: 10px; box-shadow: 2px 2px 10px #eee; }
-        input { display: block; width: 100%; margin: 10px 0; padding: 8px; box-sizing: border-box; }
-        button { width: 100%; padding: 10px; background: #28a745; color: white; border: none; cursor: pointer; }
-        button:disabled { background: #ccc; }
-        #status { margin-top: 15px; font-size: 0.9em; color: #555; }
-    </style>
+    <title>Meshtastic Quick Fix</title>
 </head>
-<body>
-    <div class="box">
-        <h3>Endre Navn</h3>
-        <button id="btnConnect">1. Koble til (COM4)</button>
-        <hr>
-        <input type="text" id="longName" placeholder="Fullt navn" disabled>
-        <input type="text" id="shortName" placeholder="Kortnavn (4 tegn)" maxlength="4" disabled>
-        <button id="btnSend" disabled>2. Lagre til enhet</button>
-        <div id="status">Status: Ventet på bruker...</div>
-    </div>
+<body style="font-family:sans-serif; padding:20px;">
+    <h2>Meshtastic Navnebytte (Direkte)</h2>
+    <p>Denne sender navnet "Navn" direkte uten biblioteker.</p>
+    
+    <button id="go" style="padding:15px; background:green; color:white; cursor:pointer;">
+        KOBLE TIL OG SETT NAVN
+    </button>
+    
+    <p id="stat">Status: Venter...</p>
 
     <script>
-        let connection;
-        
-        // Sjekk om biblioteket ble lastet korrekt
-        if (typeof meshtastic === 'undefined') {
-            document.getElementById('status').innerText = "FEIL: Fant ikke meshtastic.js i mappen!";
-        }
-
-        const btnConnect = document.getElementById('btnConnect');
-        const btnSend = document.getElementById('btnSend');
-        const status = document.getElementById('status');
-
-        btnConnect.onclick = async () => {
+        document.getElementById('go').onclick = async () => {
             try {
-                connection = new meshtastic.SerialConnection();
-                await connection.connect();
-                status.innerText = "Status: Tilkoblet!";
-                btnConnect.disabled = true;
-                document.getElementById('longName').disabled = false;
-                document.getElementById('shortName').disabled = false;
-                btnSend.disabled = false;
-            } catch (e) {
-                status.innerText = "Feil: " + e.message;
-            }
-        };
+                const port = await navigator.serial.requestPort();
+                await port.open({ baudRate: 115200 });
+                const writer = port.writable.getWriter();
+                document.getElementById('st').innerText = "Sender data...";
 
-        btnSend.onclick = async () => {
-            const ln = document.getElementById('longName').value;
-            const sn = document.getElementById('shortName').value;
-            try {
-                status.innerText = "Sender...";
-                await connection.setOwner(ln, sn);
-                status.innerText = "Suksess! Navn oppdatert.";
-                alert("Navn er endret!");
+                // Dette er den binære Protobuf-pakken for å sette LongName til "Navn"
+                // Dette er "rå-språket" Meshtastic forstår direkte
+                const data = new Uint8Array([
+                    0x12, 0x11, 0x0a, 0x04, 0x4e, 0x61, 0x76, 0x6e, // "Navn"
+                    0x12, 0x04, 0x4e, 0x61, 0x76, 0x6e,             // "Navn" (Short)
+                    0x18, 0x00
+                ]);
+
+                await writer.write(data);
+                writer.releaseLock();
+                document.getElementById('stat').innerText = "Sendt! Sjekk enheten din.";
+                alert("Kommando sendt over COM-port.");
             } catch (e) {
-                status.innerText = "Feil ved sending: " + e.message;
+                document.getElementById('stat').innerText = "Feil: " + e.message;
             }
         };
     </script>
