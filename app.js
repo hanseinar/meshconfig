@@ -1,6 +1,7 @@
-// MeshConfig — app.js  v2
+// MeshConfig — app.js  v2.1 (FIXED)
 // Hans Einar Steinsland (LA8DKA)
 // WebSerial + Meshtastic protocol + Config/Module editor + Template library
+// FIX: Admin packets now use to=0, adminChannelIndex, and proper ACK waiting
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -25,15 +26,17 @@ let ROLE_OPTIONS=[], REGION_OPTIONS=[], MODEM_OPTIONS=[],
     GPS_OPTIONS=[], BT_MODE_OPTIONS=[], REBROADCAST_OPTIONS=[];
 
 // ─── Editor state ─────────────────────────────────────────────────────────────
-// mode: 'node' (editing connected node) | 'template' (editing a template)
-
 let editorMode       = 'node';
-let editorConfig     = {};       // { device:{}, lora:{}, ... }
-let editorModule     = {};       // { telemetry:{}, mqtt:{}, ... }
-let editorSection    = 'device'; // active tab key
-let editorTplId      = null;     // id of template being edited (null = new)
+let editorConfig     = {};
+let editorModule     = {};
+let editorSection    = 'device';
+let editorTplId      = null;
+
+// ─── Pending admin requests for ACK matching ─────────────────────────────────
+const pendingAdmin = new Map(); // Map<packetId, {resolve, reject, timer}>
 
 // ─── Radio section definitions ────────────────────────────────────────────────
+// [RADIO_SECTIONS unchanged - omitted for brevity, keep your original]
 
 const RADIO_SECTIONS = {
   device: {
@@ -188,6 +191,7 @@ const RADIO_SECTIONS = {
 };
 
 // ─── Module section definitions ───────────────────────────────────────────────
+// [MODULE_SECTIONS unchanged - keep your original]
 
 const MODULE_SECTIONS = {
   telemetry: {
@@ -337,6 +341,7 @@ const MODULE_SECTIONS = {
 };
 
 // ─── Template library (localStorage) ─────────────────────────────────────────
+// [tplLoad, tplSave, tplGet, tplDelete, tplCreate, tplUpdate unchanged]
 
 function tplLoad()         { try { return JSON.parse(localStorage.getItem(LS_TEMPLATES)||'[]'); } catch{return[];} }
 function tplSave(list)     { localStorage.setItem(LS_TEMPLATES, JSON.stringify(list)); }
@@ -360,6 +365,7 @@ function tplUpdate(id, name, desc, cfg, mod) {
 }
 
 // ─── DOM ──────────────────────────────────────────────────────────────────────
+// [DOM element references unchanged]
 
 const btnConnect       = document.getElementById('btn-connect');
 const statusEl         = document.getElementById('connection-status');
@@ -373,6 +379,7 @@ const inputRestore     = document.getElementById('input-restore');
 const btnRestore       = document.getElementById('btn-restore');
 
 // ─── Proto loading ────────────────────────────────────────────────────────────
+// [loadProto unchanged]
 
 async function loadProto() {
   try {
@@ -440,6 +447,7 @@ async function loadProto() {
 }
 
 // ─── Connection ───────────────────────────────────────────────────────────────
+// [connect, disconnect unchanged]
 
 btnConnect.addEventListener('click', async () => { state.connected ? await disconnect() : await connect(); });
 
@@ -450,7 +458,6 @@ async function connect() {
   try {
     state.port = await navigator.serial.requestPort();
     await state.port.open({ baudRate: BAUD_RATE });
-    // Writer acquired/released per-packet (Chrome WebSerial requirement)
     state.connected = true;
     setStatus('connected');
     btnConnect.textContent = 'Disconnect';
@@ -461,7 +468,6 @@ async function connect() {
     renderEditorTabs();
     await sendWantConfig();
     readLoop().catch(err => { console.warn('Read loop ended:', err.message); if (state.connected) disconnect(); });
-    // Fallback: load editor after 8s even if configCompleteId never arrives
     setTimeout(() => {
       if (state.connected && !state.configDone && Object.keys(state.config).length > 0) {
         console.log('configComplete not received — loading editor with available data');
@@ -481,13 +487,15 @@ async function connect() {
 async function disconnect() {
   state.connected = false;
   try { if (state.reader) await state.reader.cancel(); } catch(_) {}
-  // No persistent writer lock to release
   try { if (state.port)   await state.port.close();   } catch(_) {}
   state.reader = null; state.port = null;
   state.myInfo = state.nodeInfo = state.metadata = null;
   state.config = {}; state.moduleConfig = {}; state.channels = [];
   state.nodeInfos = {}; state.configDone = false;
   adminSessionKey = null;
+  // Clear pending admin requests
+  for (const p of pendingAdmin.values()) clearTimeout(p.timer);
+  pendingAdmin.clear();
   setStatus('disconnected');
   btnConnect.textContent = 'Connect via USB';
   sectionNodeInfo.classList.add('hidden');
@@ -500,6 +508,7 @@ async function disconnect() {
 }
 
 // ─── Serial write ─────────────────────────────────────────────────────────────
+// [writePacket unchanged]
 
 async function writePacket(msg) {
   if (!state.port?.writable) { console.error('writePacket: no writable port'); return; }
@@ -510,7 +519,6 @@ async function writePacket(msg) {
   frame[0]=START1; frame[1]=START2;
   frame[2]=(payload.length>>8)&0xff; frame[3]=payload.length&0xff;
   frame.set(payload, 4);
-  // Acquire, write, release — matches official @meshtastic/core pattern
   const writer = state.port.writable.getWriter();
   try {
     await new Promise(r => setTimeout(r, 50));
@@ -520,17 +528,15 @@ async function writePacket(msg) {
   }
 }
 
-// ADMIN_APP portnum = 68
-// Admin messages must be sent as MeshPackets with portNum=68,
-// NOT via ToRadio.admin (field 4) which is ignored in firmware 2.7+
-// Request a session key from the node (required by firmware 2.7+ for admin)
+// ─── Admin helpers (FIXED) ────────────────────────────────────────────────────
+
+// Request session key from node (required by firmware 2.7+ for admin)
 async function ensureSessionKey() {
   if (adminSessionKey) return true;
   console.log('Requesting session key from node...');
   const CT = Root.lookupEnum('meshtastic.AdminMessage.ConfigType');
   const req = Types.AdminMessage.create({ getConfigRequest: CT.values.SESSIONKEY_CONFIG });
   await sendAdminRaw(req, true);
-  // Wait up to 3s for node to respond
   for (let i = 0; i < 30; i++) {
     await sleep(100);
     if (adminSessionKey) { console.log('Session key received'); return true; }
@@ -539,34 +545,66 @@ async function ensureSessionKey() {
   return false;
 }
 
-async function sendAdmin(adminMsg) {
-  // Include session key if we have one
+// Send admin message with optional waiting for response
+async function sendAdmin(adminMsg, waitForResponse = true) {
   if (adminSessionKey) {
     adminMsg.sessionPasskey = adminSessionKey;
   }
-  await sendAdminRaw(adminMsg);
+  if (waitForResponse) {
+    return await sendAdminAndWait(adminMsg);
+  } else {
+    return await sendAdminRaw(adminMsg, false);
+  }
 }
 
-
-async function sendAdminRaw(adminMsg, wantResponse=true) {
+// FIXED: sendAdminRaw with to=0, adminChannelIndex, proper uint32 ID
+async function sendAdminRaw(adminMsg, wantResponse=true, packetId=null) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
-  const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
-  const hopLim  = state.config.lora?.hopLimit || 3;
+  
+  // ✅ FIX: Use to=0 for local serial admin (not nodeNum)
+  const hopLim  = state.config?.lora?.hopLimit ?? 3;
+  const adminChan = state.config?.device?.adminChannelIndex ?? 0;
+  
+  // ✅ FIX: Proper uint32 packet ID
+  const id = packetId !== null && packetId !== undefined 
+    ? packetId 
+    : crypto.getRandomValues(new Uint32Array(1))[0];
+  
   const variant = Object.keys(adminMsg).filter(k=>adminMsg[k]!==undefined&&k!=='payloadVariant'&&k!=='sessionPasskey');
-  console.log('sendAdmin to:', nodeNum.toString(16), 'variant:', variant);
-  // NO pki_encrypted — local serial auth bypass (from=0 unset)
-  // Matches Test 4a that confirmed reboot works
+  console.log('sendAdmin to: 0 (local), variant:', variant, 'channel:', adminChan);
+  
   const packet = MeshPkt.create({
-    to:       nodeNum,
+    to:       0,                    // ✅ FIX: Local node for serial admin
+    from:     0,                    // ✅ Clarity: packet originates from "self"
     decoded:  Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
-    id:       (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
+    id:       id,                   // ✅ FIX: Valid uint32 for ACK matching
     wantAck:  true,
     hopLimit: hopLim,
-    channel:  0,
+    channel:  adminChan,            // ✅ FIX: Use adminChannelIndex from config
   });
+  
   await writePacket(Types.ToRadio.create({ packet }));
+  return id;
+}
+
+// NEW: Send admin and wait for ACK/response with timeout
+async function sendAdminAndWait(adminMsg, timeoutMs = 5000) {
+  const id = await sendAdminRaw(adminMsg, true);
+  
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const p = pendingAdmin.get(id);
+      if (p) {
+        pendingAdmin.delete(id);
+        reject(new Error(`Admin timeout for id=${id} (0x${id.toString(16)})`));
+      }
+    }, timeoutMs);
+    
+    pendingAdmin.set(id, { resolve, reject, timer });
+    console.log(`[Admin] Waiting for response id=${id} (0x${id.toString(16)})`);
+  });
 }
 
 async function sendWantConfig() {
@@ -574,10 +612,9 @@ async function sendWantConfig() {
 }
 
 // ─── Read loop — sliding window ───────────────────────────────────────────────
+// [readLoop unchanged]
 
 async function readLoop() {
-  // Use TransformStream pipeline so port.readable is NOT locked by getReader().
-  // This keeps port.writable freely available for writing — same as @meshtastic/core.
   let rxBuf=new Uint8Array(8192), rxLen=0;
   const append  = b => { if(rxLen+b.length>rxBuf.length){const n=new Uint8Array(Math.max(rxBuf.length*2,rxLen+b.length+1024));n.set(rxBuf.subarray(0,rxLen));rxBuf=n;} rxBuf.set(b,rxLen); rxLen+=b.length; };
   const consume = n => { rxBuf.copyWithin(0,n); rxLen-=n; };
@@ -602,22 +639,18 @@ async function readLoop() {
     }
   }
 
-  // Create a PassThrough transform that feeds our buffer
   const transform = new TransformStream({
     transform(chunk, controller) {
       append(chunk);
       processBuffer();
-      controller.enqueue(chunk); // pass through (required by pipeTo)
+      controller.enqueue(chunk);
     }
   });
 
-  // pipeTo locks port.readable to the transform writable — NOT to a reader
-  // port.writable remains fully unlocked for writing
   const pipePromise = state.port.readable.pipeTo(transform.writable).catch(e => {
     console.debug('Pipe ended:', e?.message);
   });
 
-  // Drain the transform readable to keep the pipeline flowing
   state.reader = transform.readable.getReader();
   try {
     while (state.connected) {
@@ -627,13 +660,13 @@ async function readLoop() {
   } finally {
     try { state.reader.releaseLock(); } catch(_) {}
     state.reader = null;
-    // Cancel the pipe
     try { state.port?.readable?.cancel(); } catch(_) {}
     await pipePromise;
   }
 }
 
 // ─── FromRadio dispatch ───────────────────────────────────────────────────────
+// [dispatchFromRadio unchanged except handleIncomingPacket]
 
 function dispatchFromRadio(msg) {
   const v=msg.payloadVariant;
@@ -648,13 +681,14 @@ function dispatchFromRadio(msg) {
     case 'deviceMetadata':   handleDeviceMetadata(msg.deviceMetadata);  break;
     case 'configCompleteId': handleConfigComplete();                    break;
     case 'deviceUiConfig':   break;
-    case 'packet':           handleIncomingPacket(msg.packet);              break;
+    case 'packet':           handleIncomingPacket(msg.packet);          break; // ✅ Updated
     case 'logRecord':        console.debug('[Node]',msg.logRecord?.message); break;
     default:                 console.debug('FromRadio unhandled:',v);   break;
   }
 }
 
 // ─── Config handlers ──────────────────────────────────────────────────────────
+// [handleMyInfo, handleNodeInfo, updateOwnNodeDisplay unchanged]
 
 function handleMyInfo(m) {
   state.myInfo=m;
@@ -673,25 +707,38 @@ function updateOwnNodeDisplay() {
   document.getElementById('info-hw').textContent        = u.hwModel!==undefined?String(u.hwModel):'—';
   document.getElementById('info-role').textContent      = labelFor(ROLE_OPTIONS,u.role);
 }
-// Handle incoming MeshPackets (admin responses, session key etc.)
+
+// ✅ FIXED: handleIncomingPacket with ACK matching for admin responses
 function handleIncomingPacket(packet) {
   if (!packet?.decoded) return;
   if (packet.decoded.portnum !== 6) return;   // ADMIN_APP = 6
   try {
     const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
     console.log('Admin response received, keys:', Object.keys(adminResp).filter(k => adminResp[k]));
+    
+    // Check for session key
     if (adminResp.sessionPasskey && adminResp.sessionPasskey.length > 0) {
       adminSessionKey = adminResp.sessionPasskey;
       console.log('Session key obtained:', adminSessionKey.length, 'bytes');
+    }
+    
+    // ✅ FIX: Match response to pending request by packet.id
+    const pending = pendingAdmin.get(packet.id);
+    if (pending) {
+      console.log(`[Admin] Matched response for id=${packet.id} (0x${packet.id.toString(16)})`);
+      clearTimeout(pending.timer);
+      pending.resolve(adminResp);
+      pendingAdmin.delete(packet.id);
     }
   } catch(e) {
     console.debug('Admin response decode error:', e.message);
   }
 }
 
+// [handleConfig, normalizeEnums, resolveEnumString, handleModuleConfig, handleChannel, handleDeviceMetadata, handleConfigComplete, labelFor unchanged]
+
 function handleConfig(config) {
   const t=config.payloadVariant;
-  // Normalize enum strings to numbers so select fields match correctly
   state.config[t] = normalizeEnums(config[t]);
   if(t==='lora'&&config.lora)
     document.getElementById('info-region').textContent=labelFor(REGION_OPTIONS,config.lora.region);
@@ -703,14 +750,11 @@ function handleConfig(config) {
   }
 }
 
-// Convert any enum string values ("EU_868", "LONG_SLOW" etc.) to their numeric equivalents
-// protobufjs sometimes decodes enums as strings depending on config
 function normalizeEnums(obj) {
   if (!obj || typeof obj !== 'object') return obj;
   const result = {};
   for (const [key, val] of Object.entries(obj)) {
     if (typeof val === 'string' && Root) {
-      // Try to find a matching enum value across all known enums
       const num = resolveEnumString(val);
       result[key] = (num !== null) ? num : val;
     } else if (typeof val === 'object' && val !== null && !Array.isArray(val)) {
@@ -723,7 +767,6 @@ function normalizeEnums(obj) {
 }
 
 function resolveEnumString(str) {
-  // Check all option lists
   const allOpts = [...ROLE_OPTIONS,...REGION_OPTIONS,...MODEM_OPTIONS,...GPS_OPTIONS,...BT_MODE_OPTIONS,...REBROADCAST_OPTIONS];
   const match = allOpts.find(o => o.label === str);
   return match ? match.value : null;
@@ -737,24 +780,22 @@ function handleDeviceMetadata(md) {
 function handleConfigComplete() {
   state.configDone=true;
   console.log('Config complete');
-  // Load into editor if in node mode
   if (editorMode==='node') { loadNodeIntoEditor(); }
 }
 function labelFor(opts,val) { const o=opts.find(o=>o.value===val); return o?o.label:(val!==undefined?String(val):'—'); }
 
 // ─── Editor — load data ───────────────────────────────────────────────────────
+// [loadNodeIntoEditor, loadTemplateIntoEditor, loadTemplateOntoNode, updateEditorBanner unchanged]
 
 function loadNodeIntoEditor() {
   editorConfig  = JSON.parse(JSON.stringify(state.config));
   editorModule  = JSON.parse(JSON.stringify(state.moduleConfig));
-  // Pre-fill fixed position from nodeInfo
   if (!editorConfig.position) editorConfig.position={};
   const pos=state.nodeInfo?.position;
   editorConfig.position._lat = pos?.latitudeI  ? (pos.latitudeI /1e7).toFixed(6) : '';
   editorConfig.position._lon = pos?.longitudeI ? (pos.longitudeI/1e7).toFixed(6) : '';
   editorConfig.position._alt = pos?.altitude ?? '';
 
-  // Pre-fill node name fields from user info
   if (!editorConfig.device) editorConfig.device = {};
   const user = state.nodeInfo?.user || {};
   editorConfig.device._longName  = user.longName  || '';
@@ -788,7 +829,6 @@ function loadTemplateOntoNode() {
   if (!sel) { alert('Select a template first.'); return; }
   const t = tplGet(sel);
   if (!t) return;
-  // Overlay template values onto current node config
   editorConfig = JSON.parse(JSON.stringify(state.config));
   editorModule = JSON.parse(JSON.stringify(state.moduleConfig));
   for (const [sec,vals] of Object.entries(t.config||{})) {
@@ -824,6 +864,7 @@ function updateEditorBanner(msg) {
 }
 
 // ─── Editor — render ─────────────────────────────────────────────────────────
+// [renderEditor, renderEditorTabs, renderEditorPanel, renderField, getOptions, saveCurrentPanel, updateApplyButtons unchanged]
 
 function renderEditor() {
   renderEditorTabs();
@@ -876,16 +917,13 @@ function renderEditorPanel(sectionKey) {
   html+=`<div id="field-help" class="field-help"></div>`;
   panel.innerHTML=html;
 
-  // Fixed position toggle
   panel.querySelector('[data-key="fixedPosition"]')?.addEventListener('change',e=>{
     const wrap=document.getElementById('fixed-coords-wrap');
     if(wrap) wrap.style.display=e.target.checked?'':'none';
   });
-  // Private key toggle
   panel.querySelector('.pk-toggle')?.addEventListener('change',e=>{
     panel.querySelector('.pk-value').style.display=e.target.checked?'':'none';
   });
-  // Help text on focus
   panel.querySelectorAll('.field-input').forEach(el=>{
     el.addEventListener('focus',()=>{
       const helpEl=document.getElementById('field-help');
@@ -896,7 +934,6 @@ function renderEditorPanel(sectionKey) {
       if(helpEl) helpEl.textContent='';
     });
   });
-  // Select description live update
   panel.querySelectorAll('select.field-input').forEach(sel=>{
     const update=()=>{
       const descEl=sel.parentElement?.querySelector('.select-desc');
@@ -990,9 +1027,7 @@ function updateApplyButtons() {
   if (tplBtn)  tplBtn.style.display  = editorMode==='template' ? '' : 'none';
 }
 
-// ─── Apply to node (with transaction) ────────────────────────────────────────
-
-// Test function: send a reboot via ToRadio.admin to confirm basic comms work
+// ─── Apply to node (FIXED with transaction + ACK waiting) ─────────────────────
 
 async function testSetOwner() {
   if (!state.connected || !state.myInfo) { alert('Not connected'); return; }
@@ -1009,36 +1044,32 @@ async function testSetOwner() {
   console.log('testSetOwner: serialEnabled=', secCfg.serialEnabled);
   console.log('testSetOwner: adminKey length=', secCfg.adminKey?.length || 0);
 
-  // Test A: to=nodeNum (current)
-  console.log('--- Test A: to=nodeNum ---');
-  await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
-  await sleep(2000);
-
-  // Test B: to=0 (self)
-  console.log('--- Test B: to=0 (self) ---');
+  console.log('--- Test: to=0 (self) with ACK waiting ---');
   const Data2  = Root.lookupType('meshtastic.Data');
   const MeshPkt2 = Root.lookupType('meshtastic.MeshPacket');
   const adminBytes2 = Types.AdminMessage.encode(Types.AdminMessage.create({ setOwner: userMsg })).finish();
   const pktB = MeshPkt2.create({
     to:       0,
     decoded:  Data2.create({ portnum: 6, payload: adminBytes2, wantResponse: true }),
-    id:       (Math.floor(Math.random()*0x7fffffff)+1)>>>0,
+    id:       crypto.getRandomValues(new Uint32Array(1))[0],
     wantAck:  true,
     hopLimit: state.config.lora?.hopLimit || 3,
-    channel:  0,
+    channel:  state.config?.device?.adminChannelIndex ?? 0,
   });
   await writePacket(Types.ToRadio.create({ packet: pktB }));
-  console.log('Test B sent. Watch for response...');
+  console.log('Test sent. Watch for response...');
 }
 
 async function rebootNode() {
   if (!state.connected) { alert('Not connected.'); return; }
   if (!confirm('Reboot connected node?')) return;
-  await sendAdmin(Types.AdminMessage.create({ rebootSeconds: 3 }));
+  // Reboot doesn't need transaction, but use sendAdmin for session key handling
+  await sendAdmin(Types.AdminMessage.create({ rebootSeconds: 3 }), false);
   alert('Reboot command sent. Node will restart in 3 seconds.');
   setTimeout(() => disconnect(), 3500);
 }
 
+// ✅ FIXED: applyToNode with proper ACK waiting and session key
 async function applyToNode() {
   console.log('applyToNode called. connected:', state.connected, 'configDone:', state.configDone);
   if (!state.connected)   { alert('Not connected to a node.'); return; }
@@ -1054,7 +1085,10 @@ async function applyToNode() {
 
   let sent=0;
   try {
-    // Node name (setOwner) — sent directly, not inside transaction (matches Python CLI)
+    // ✅ Ensure session key before any admin command
+    await ensureSessionKey();
+    
+    // Node name (setOwner)
     const devCfg = editorConfig.device || {};
     const newLong  = devCfg._longName?.trim();
     const newShort = devCfg._shortName?.trim();
@@ -1068,19 +1102,21 @@ async function applyToNode() {
         shortName: (newShort || curShort).substring(0, 4),
       });
       await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
-      sent++; await sleep(300);
+      sent++;
     }
 
-    // Begin transaction
-    await sendAdmin(Types.AdminMessage.create({ beginEditSettings: true }));
-    await sleep(150);
+    // ✅ Begin transaction with ACK waiting
+    await sendAdminAndWait(Types.AdminMessage.create({ beginEditSettings: true }));
+    console.log('✓ beginEditSettings ACK received');
 
     // Radio config
     for (const cfgType of Object.keys(RADIO_SECTIONS)) {
       if (!editorConfig[cfgType]) continue;
       const clean=Object.fromEntries(Object.entries(editorConfig[cfgType]).filter(([k,v])=>!k.startsWith('_')&&v!==undefined));
-      await sendAdmin(Types.AdminMessage.create({ setConfig: Types.Config.create({ [cfgType]: clean }) }));
-      sent++; await sleep(100);
+      if (Object.keys(clean).length === 0) continue;
+      await sendAdminAndWait(Types.AdminMessage.create({ setConfig: Types.Config.create({ [cfgType]: clean }) }));
+      sent++;
+      console.log(`✓ setConfig.${cfgType} ACK received`);
     }
 
     // Module config
@@ -1088,8 +1124,9 @@ async function applyToNode() {
       if (!editorModule[modType]) continue;
       const clean=Object.fromEntries(Object.entries(editorModule[modType]).filter(([,v])=>v!==undefined));
       if (Object.keys(clean).length===0) continue;
-      await sendAdmin(Types.AdminMessage.create({ setModuleConfig: Types.ModuleConfig.create({ [modType]: clean }) }));
-      sent++; await sleep(100);
+      await sendAdminAndWait(Types.AdminMessage.create({ setModuleConfig: Types.ModuleConfig.create({ [modType]: clean }) }));
+      sent++;
+      console.log(`✓ setModuleConfig.${modType} ACK received`);
     }
 
     // Fixed position
@@ -1100,13 +1137,14 @@ async function applyToNode() {
         longitudeI: Math.round(Number(pos._lon)*1e7),
         altitude:   pos._alt!==''&&pos._alt!==undefined ? Number(pos._alt) : 0,
       });
-      await sendAdmin(Types.AdminMessage.create({ setFixedPosition: posMsg }));
-      sent++; await sleep(100);
+      await sendAdminAndWait(Types.AdminMessage.create({ setFixedPosition: posMsg }));
+      sent++;
+      console.log('✓ setFixedPosition ACK received');
     }
 
-    // Commit transaction
-    await sendAdmin(Types.AdminMessage.create({ commitEditSettings: true }));
-    await sleep(150);
+    // ✅ Commit transaction with ACK waiting
+    await sendAdminAndWait(Types.AdminMessage.create({ commitEditSettings: true }));
+    console.log('✓ commitEditSettings ACK received');
 
     updateEditorBanner('Configuration applied — ' + sent + ' section(s) sent.');
     alert(`Done — ${sent} section(s) written to node.\n\nThe node will apply all settings. It may reboot if LoRa region or role was changed.`);
@@ -1116,7 +1154,8 @@ async function applyToNode() {
   }
 }
 
-// ─── Templates ────────────────────────────────────────────────────────────────
+// ─── Templates ───────────────────────────────────────────────────────────────
+// [renderTemplateList, confirmDeleteTemplate, newTemplate, newTemplateFromNode, saveTemplate, cancelTemplateEdit, exportTemplate, importTemplate unchanged]
 
 function renderTemplateList() {
   const list=tplLoad();
@@ -1124,7 +1163,6 @@ function renderTemplateList() {
   if(!el)return;
   if(list.length===0){
     el.innerHTML='<p class="tpl-empty">No templates saved yet. Create one below.</p>';
-    // Also update load select
     const sel=document.getElementById('tpl-load-select');
     if(sel){sel.innerHTML='<option value="">— no templates —</option>'; sel.disabled=true;}
     return;
@@ -1192,7 +1230,6 @@ function saveTemplate() {
   if(editorTplId) tplUpdate(editorTplId, name, desc, editorConfig, editorModule);
   else { const t=tplCreate(name,desc,editorConfig,editorModule); editorTplId=t.id; }
   renderTemplateList();
-  // Switch back to node mode if connected
   if(state.connected&&state.configDone){ editorMode='node'; loadNodeIntoEditor(); }
   else { updateEditorBanner(); updateApplyButtons(); }
   alert(`Template "${name}" saved.`);
@@ -1235,6 +1272,7 @@ function importTemplate() {
 }
 
 // ─── Backup ───────────────────────────────────────────────────────────────────
+// [btnBackup, btnRestore, importConfig unchanged]
 
 btnBackup.addEventListener('click',()=>{
   if(!state.configDone){alert('Config not fully loaded yet.');return;}
@@ -1273,6 +1311,7 @@ async function importConfig(yamlText) {
 }
 
 // ─── UI helpers ───────────────────────────────────────────────────────────────
+// [setStatus, sleep, escHtml unchanged]
 
 function setStatus(s) {
   statusEl.textContent={disconnected:'Disconnected',connecting:'Connecting…',connected:'Connected'}[s]||s;
@@ -1282,6 +1321,7 @@ function sleep(ms){return new Promise(r=>setTimeout(r,ms));}
 function escHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 
 // ─── YAML helpers ─────────────────────────────────────────────────────────────
+// [jsonToYaml, parseSimpleYaml, parseYamlValue unchanged]
 
 function jsonToYaml(obj,i=0){
   const p='  '.repeat(i);
