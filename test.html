@@ -1,38 +1,56 @@
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Meshtastic Fix</title></head>
-<body style="font-family:sans-serif; padding:20px;">
-    <h3>Endre Longname (COM4)</h3>
-    <input type="text" id="n" placeholder="Skriv navn her..." style="padding:10px;">
-    <button id="go" style="padding:10px; background:green; color:white;">SEND NAVN</button>
-    <p id="s">Status: Klar</p>
+<head>
+    <meta charset="UTF-8">
+    <title>Meshtastic Hardcoded Fix</title>
+</head>
+<body style="font-family:sans-serif; padding:40px; text-align:center;">
+    <h2>Meshtastic Navnebytte: "Test"</h2>
+    <p>Denne koden sender en ferdig generert binærpakke som endrer navnet til <b>Test</b>.</p>
+    
+    <button id="sendBtn" style="padding:20px; background:#007bff; color:white; border:none; border-radius:5px; cursor:pointer; font-size:16px;">
+        1. Velg COM4 og Send "Test"
+    </button>
+    
+    <p id="status" style="margin-top:20px; color:#666;">Status: Venter på tilkobling...</p>
 
     <script>
-        document.getElementById('go').onclick = async () => {
-            const status = document.getElementById('s');
-            const name = document.getElementById('n').value || "Navn";
+        document.getElementById('sendBtn').onclick = async () => {
+            const status = document.getElementById('status');
             try {
+                // Ber om tilgang til serieport
                 const port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200 });
                 const writer = port.writable.getWriter();
+
+                status.innerText = "Sender binærpakke...";
+
+                /* 
+                   ANALYSE AV DENNE PAKKEN (Forankret i Meshtastic Source):
+                   0x94, 0xc0: Serial Framing Start
+                   0x00, 0x10: Lengde på ToRadio-pakke (16 bytes)
+                   0x22: ToRadio Field 4 (User)
+                   0x0e: Lengde på User-melding (14 bytes)
+                   0x0a, 0x04, 0x54, 0x65, 0x73, 0x74: Field 1 (LongName: "Test")
+                   0x12, 0x04, 0x54, 0x65, 0x73, 0x74: Field 2 (ShortName: "Test")
+                   0x18, 0x00: Field 3 (Macaddr: 0)
+                */
+                const packet = new Uint8Array([
+                    0x94, 0xc0, 0x00, 0x10, 0x22, 0x0e, 0x0a, 0x04, 
+                    0x54, 0x65, 0x73, 0x74, 0x12, 0x04, 0x54, 0x65, 
+                    0x73, 0x74, 0x18, 0x00
+                ]);
+
+                await writer.write(packet);
                 
-                // 1. Bygg selve navne-pakken (User protobuf)
-                const enc = new TextEncoder();
-                const b = enc.encode(name);
-                const userMsg = new Uint8Array([0x0a, b.length, ...b, 0x12, 4, ...b.slice(0,4)]);
-
-                // 2. Bygg ToRadio-pakken (Setter innpakning for konfigurasjon)
-                const toRadio = new Uint8Array([0x22, userMsg.length, ...userMsg]);
-
-                // 3. Legg på Serial Framing (Dette manglet i forrige forsøk!)
-                // [0x94, 0xc0] er start-bytes for Meshtastic serieprotokoll
-                const frame = new Uint8Array([0x94, 0xc0, 0x00, toRadio.length, ...toRadio]);
-
-                await writer.write(frame);
+                // Frigjør porten
                 writer.releaseLock();
-                status.innerText = "Sendt! Enheten skal nå oppdatere seg.";
-            } catch (e) {
-                status.innerText = "Feil: " + e.message;
+                status.innerText = "Sendt! Sjekk om enheten viser 'Test'.";
+                status.style.color = "green";
+                
+            } catch (err) {
+                status.innerText = "Feil: " + err.message;
+                status.style.color = "red";
             }
         };
     </script>
