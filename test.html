@@ -2,40 +2,52 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <title>Meshtastic Quick Fix</title>
+    <title>Meshtastic Navnebytte</title>
 </head>
-<body style="font-family:sans-serif; padding:20px;">
-    <h2>Meshtastic Navnebytte (Direkte)</h2>
-    <p>Denne sender navnet "Navn" direkte uten biblioteker.</p>
+<body style="font-family:sans-serif; padding:20px; max-width:400px;">
+    <h2>Endre Longname</h2>
+    <p>Skriv inn nytt navn og trykk koble til.</p>
     
-    <button id="go" style="padding:15px; background:green; color:white; cursor:pointer;">
-        KOBLE TIL OG SETT NAVN
+    <input type="text" id="navnFelt" placeholder="Nytt navn" style="width:100%; padding:10px; margin-bottom:10px;">
+    <button id="go" style="width:100%; padding:15px; background:blue; color:white; border:none; cursor:pointer;">
+        1. VELG COM4 OG SEND
     </button>
     
-    <p id="stat">Status: Venter...</p>
+    <p id="status">Status: Venter på klikk...</p>
 
     <script>
         document.getElementById('go').onclick = async () => {
+            const statusFelt = document.getElementById('status');
+            const nyttNavn = document.getElementById('navnFelt').value || "Navn";
+            
             try {
+                // 1. Be om tilgang til port
                 const port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200 });
                 const writer = port.writable.getWriter();
-                document.getElementById('st').innerText = "Sender data...";
+                
+                statusFelt.innerText = "Sender '" + nyttNavn + "'...";
 
-                // Dette er den binære Protobuf-pakken for å sette LongName til "Navn"
-                // Dette er "rå-språket" Meshtastic forstår direkte
-                const data = new Uint8Array([
-                    0x12, 0x11, 0x0a, 0x04, 0x4e, 0x61, 0x76, 0x6e, // "Navn"
-                    0x12, 0x04, 0x4e, 0x61, 0x76, 0x6e,             // "Navn" (Short)
-                    0x18, 0x00
+                // 2. Lag binærpakke (Enkel Protobuf-encoding for User-melding)
+                const encoder = new TextEncoder();
+                const nameBytes = encoder.encode(nyttNavn);
+                const shortBytes = encoder.encode(nyttNavn.substring(0,4));
+                
+                // Vi bygger pakken manuelt: [Tag][Lengde][Data...]
+                const packet = new Uint8Array([
+                    0x0a, nameBytes.length, ...nameBytes,   // Field 1: Longname
+                    0x12, shortBytes.length, ...shortBytes, // Field 2: Shortname
+                    0x18, 0x00                              // Field 3: Mac (0)
                 ]);
 
-                await writer.write(data);
+                // 3. Send over serieporten
+                await writer.write(packet);
                 writer.releaseLock();
-                document.getElementById('stat').innerText = "Sendt! Sjekk enheten din.";
-                alert("Kommando sendt over COM-port.");
+                
+                statusFelt.innerText = "Sendt! Sjekk enheten.";
+                alert("Navnet er sendt til Meshtastic-enheten.");
             } catch (e) {
-                document.getElementById('stat').innerText = "Feil: " + e.message;
+                statusFelt.innerText = "Feil: " + e.message;
             }
         };
     </script>
