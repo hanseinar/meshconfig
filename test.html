@@ -1,53 +1,38 @@
 <!DOCTYPE html>
 <html>
-<head>
-    <meta charset="UTF-8">
-    <title>Meshtastic Navnebytte</title>
-</head>
-<body style="font-family:sans-serif; padding:20px; max-width:400px;">
-    <h2>Endre Longname</h2>
-    <p>Skriv inn nytt navn og trykk koble til.</p>
-    
-    <input type="text" id="navnFelt" placeholder="Nytt navn" style="width:100%; padding:10px; margin-bottom:10px;">
-    <button id="go" style="width:100%; padding:15px; background:blue; color:white; border:none; cursor:pointer;">
-        1. VELG COM4 OG SEND
-    </button>
-    
-    <p id="status">Status: Venter på klikk...</p>
+<head><meta charset="UTF-8"><title>Meshtastic Fix</title></head>
+<body style="font-family:sans-serif; padding:20px;">
+    <h3>Endre Longname (COM4)</h3>
+    <input type="text" id="n" placeholder="Skriv navn her..." style="padding:10px;">
+    <button id="go" style="padding:10px; background:green; color:white;">SEND NAVN</button>
+    <p id="s">Status: Klar</p>
 
     <script>
         document.getElementById('go').onclick = async () => {
-            const statusFelt = document.getElementById('status');
-            const nyttNavn = document.getElementById('navnFelt').value || "Navn";
-            
+            const status = document.getElementById('s');
+            const name = document.getElementById('n').value || "Navn";
             try {
-                // 1. Be om tilgang til port
                 const port = await navigator.serial.requestPort();
                 await port.open({ baudRate: 115200 });
                 const writer = port.writable.getWriter();
                 
-                statusFelt.innerText = "Sender '" + nyttNavn + "'...";
+                // 1. Bygg selve navne-pakken (User protobuf)
+                const enc = new TextEncoder();
+                const b = enc.encode(name);
+                const userMsg = new Uint8Array([0x0a, b.length, ...b, 0x12, 4, ...b.slice(0,4)]);
 
-                // 2. Lag binærpakke (Enkel Protobuf-encoding for User-melding)
-                const encoder = new TextEncoder();
-                const nameBytes = encoder.encode(nyttNavn);
-                const shortBytes = encoder.encode(nyttNavn.substring(0,4));
-                
-                // Vi bygger pakken manuelt: [Tag][Lengde][Data...]
-                const packet = new Uint8Array([
-                    0x0a, nameBytes.length, ...nameBytes,   // Field 1: Longname
-                    0x12, shortBytes.length, ...shortBytes, // Field 2: Shortname
-                    0x18, 0x00                              // Field 3: Mac (0)
-                ]);
+                // 2. Bygg ToRadio-pakken (Setter innpakning for konfigurasjon)
+                const toRadio = new Uint8Array([0x22, userMsg.length, ...userMsg]);
 
-                // 3. Send over serieporten
-                await writer.write(packet);
+                // 3. Legg på Serial Framing (Dette manglet i forrige forsøk!)
+                // [0x94, 0xc0] er start-bytes for Meshtastic serieprotokoll
+                const frame = new Uint8Array([0x94, 0xc0, 0x00, toRadio.length, ...toRadio]);
+
+                await writer.write(frame);
                 writer.releaseLock();
-                
-                statusFelt.innerText = "Sendt! Sjekk enheten.";
-                alert("Navnet er sendt til Meshtastic-enheten.");
+                status.innerText = "Sendt! Enheten skal nå oppdatere seg.";
             } catch (e) {
-                statusFelt.innerText = "Feil: " + e.message;
+                status.innerText = "Feil: " + e.message;
             }
         };
     </script>
