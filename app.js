@@ -523,18 +523,19 @@ async function writePacket(msg) {
 // ADMIN_APP portnum = 68
 // Admin messages must be sent as MeshPackets with portNum=68,
 // NOT via ToRadio.admin (field 4) which is ignored in firmware 2.7+
-// Request a session key from the node (required by firmware 2.5+ for all state-changing admin)
+// Request a session key from the node (required by firmware 2.7+ for admin)
 async function ensureSessionKey() {
   if (adminSessionKey) return true;
-  console.log('Requesting session key via getConfigRequest(DEVICE)...');
-  // Firmware automatically attaches session_passkey (field 101) to ANY admin response.
-  // Send a harmless read op — getConfigRequest with type DEVICE (0) — and capture the passkey.
-  await sendAdminRaw(Types.AdminMessage.create({ getConfigRequest: 8 }), true);
-  for (let i = 0; i < 40; i++) {
+  console.log('Requesting session key from node...');
+  const CT = Root.lookupEnum('meshtastic.AdminMessage.ConfigType');
+  const req = Types.AdminMessage.create({ getConfigRequest: CT.values.SESSIONKEY_CONFIG });
+  await sendAdminRaw(req, true);
+  // Wait up to 3s for node to respond
+  for (let i = 0; i < 30; i++) {
     await sleep(100);
-    if (adminSessionKey) { console.log('Session key obtained:', adminSessionKey.length, 'bytes'); return true; }
+    if (adminSessionKey) { console.log('Session key received'); return true; }
   }
-  console.warn('Session key not received after 4s — proceeding without');
+  console.warn('Session key not received — proceeding without it');
   return false;
 }
 
@@ -549,7 +550,6 @@ async function sendAdmin(adminMsg) {
 
 async function sendAdminRaw(adminMsg, wantResponse=true) {
   const adminBytes = Types.AdminMessage.encode(adminMsg).finish();
-  console.log('adminBytes hex:', Array.from(adminBytes).map(b=>b.toString(16).padStart(2,'0')).join(' '));
   const Data    = Root.lookupType('meshtastic.Data');
   const MeshPkt = Root.lookupType('meshtastic.MeshPacket');
   const nodeNum = state.myInfo?.myNodeNum || 0xffffffff;
@@ -560,12 +560,11 @@ async function sendAdminRaw(adminMsg, wantResponse=true) {
   // Matches Test 4a that confirmed reboot works
   const packet = MeshPkt.create({
     to:       nodeNum,
-    decoded:  Data.create({ portnum: 68, payload: adminBytes, wantResponse }),
+    decoded:  Data.create({ portnum: 6, payload: adminBytes, wantResponse }),
     id:       (Math.floor(Math.random() * 0x7fffffff) + 1) >>> 0,
     wantAck:  true,
     hopLimit: hopLim,
-    priority:     70,
-    pkiEncrypted: true,
+    channel:  0,
   });
   await writePacket(Types.ToRadio.create({ packet }));
 }
@@ -650,7 +649,7 @@ function dispatchFromRadio(msg) {
     case 'configCompleteId': handleConfigComplete();                    break;
     case 'deviceUiConfig':   break;
     case 'packet':           handleIncomingPacket(msg.packet);              break;
-    case 'logRecord':        console.log('[Node]',msg.logRecord?.message); break;
+    case 'logRecord':        console.debug('[Node]',msg.logRecord?.message); break;
     default:                 console.debug('FromRadio unhandled:',v);   break;
   }
 }
@@ -677,11 +676,10 @@ function updateOwnNodeDisplay() {
 // Handle incoming MeshPackets (admin responses, session key etc.)
 function handleIncomingPacket(packet) {
   if (!packet?.decoded) return;
-  console.log('handleIncomingPacket portnum:', packet.decoded.portnum, 'payload bytes:', packet.decoded.payload?.length);
-  if (packet.decoded.portnum !== 6 && packet.decoded.portnum !== 68) return;
+  if (packet.decoded.portnum !== 6) return;   // ADMIN_APP = 6
   try {
     const adminResp = Types.AdminMessage.decode(packet.decoded.payload);
-    console.log('Admin response decoded:', JSON.stringify(adminResp));
+    console.log('Admin response received, keys:', Object.keys(adminResp).filter(k => adminResp[k]));
     if (adminResp.sessionPasskey && adminResp.sessionPasskey.length > 0) {
       adminSessionKey = adminResp.sessionPasskey;
       console.log('Session key obtained:', adminSessionKey.length, 'bytes');
@@ -1000,16 +998,37 @@ async function testSetOwner() {
   if (!state.connected || !state.myInfo) { alert('Not connected'); return; }
   const name = prompt('New longName to test:', 'TestName123');
   if (!name) return;
-  await ensureSessionKey();
   const UserType = Root.lookupType('meshtastic.User');
   const userMsg  = UserType.create({
     id:        state.nodeInfo?.user?.id || '',
     longName:  name.trim(),
     shortName: (state.nodeInfo?.user?.shortName || 'TEST').substring(0,4),
   });
-  console.log('testSetOwner: sending setOwner, id=', state.nodeInfo?.user?.id, 'longName=', name.trim());
+  const secCfg = state.config.security || {};
+  console.log('testSetOwner: adminChannelEnabled=', secCfg.adminChannelEnabled);
+  console.log('testSetOwner: serialEnabled=', secCfg.serialEnabled);
+  console.log('testSetOwner: adminKey length=', secCfg.adminKey?.length || 0);
+
+  // Test A: to=nodeNum (current)
+  console.log('--- Test A: to=nodeNum ---');
   await sendAdmin(Types.AdminMessage.create({ setOwner: userMsg }));
-  console.log('testSetOwner: sent. Watch for FromRadio:packet response.');
+  await sleep(2000);
+
+  // Test B: to=0 (self)
+  console.log('--- Test B: to=0 (self) ---');
+  const Data2  = Root.lookupType('meshtastic.Data');
+  const MeshPkt2 = Root.lookupType('meshtastic.MeshPacket');
+  const adminBytes2 = Types.AdminMessage.encode(Types.AdminMessage.create({ setOwner: userMsg })).finish();
+  const pktB = MeshPkt2.create({
+    to:       0,
+    decoded:  Data2.create({ portnum: 6, payload: adminBytes2, wantResponse: true }),
+    id:       (Math.floor(Math.random()*0x7fffffff)+1)>>>0,
+    wantAck:  true,
+    hopLimit: state.config.lora?.hopLimit || 3,
+    channel:  0,
+  });
+  await writePacket(Types.ToRadio.create({ packet: pktB }));
+  console.log('Test B sent. Watch for response...');
 }
 
 async function rebootNode() {
@@ -1025,8 +1044,6 @@ async function applyToNode() {
   if (!state.connected)   { alert('Not connected to a node.'); return; }
   if (!state.configDone)  { alert('Node config not fully loaded yet.'); return; }
   if (!state.port?.writable) { alert('Serial port not writable. Try disconnecting and reconnecting.'); return; }
-  // Ensure session key before any writes (required by firmware 2.5+)
-  await ensureSessionKey();
   saveCurrentPanel();
 
   const changes = [];
